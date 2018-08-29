@@ -4,10 +4,11 @@ import numpy as np
 import tensorflow as tf
 import prettytensor as pt
 from cgm_train.deconv import deconv2d
+from config import imsize,dim_z,dim_v
 
 # Global network parameters
 
-def recog_model_regress(input_tensor,dim_z,dim_x,dim_v):
+def recog_model_regress(input_tensor):
     ''' The input to this network (input_tensor) is a set of batches, each of which has
     temporal ordering. i.e. the examples in a single batch follow temporal dynamics
     We do this because we want to take the batched output, and apply dynamical transformations
@@ -18,7 +19,7 @@ def recog_model_regress(input_tensor,dim_z,dim_x,dim_v):
 
     ## Construct the shared layers of the network
     shared_layers = (pt.wrap(input_tensor).
-                     reshape([None, dim_x, dim_x, 3]). ## Reshape input
+                     reshape([None, imsize, imsize, 3]). ## Reshape input
                      conv2d(5, 16, stride=2). ## Three layers of convolution: 32x32x4
                      conv2d(5, 32, stride=2). ## 16x16x8
                      conv2d(5, 64, stride=2). ## 8x8x16
@@ -35,7 +36,7 @@ def recog_model_regress(input_tensor,dim_z,dim_x,dim_v):
     #                  dropout(0.9).
     #                  flatten())
 
-    dyn_output = shared_layers.fully_connected(dim_z,activation_fn=tf.nn.sigmoid,name = 'out',weights=tf.random_uniform_initializer(0.1)).tensor
+    dyn_output = shared_layers.fully_connected(dim_z+dim_v,activation_fn=tf.nn.sigmoid,name = 'out',weights=tf.random_uniform_initializer(0.1)).tensor
     # stat_output = shared_layers.fully_connected(dim_v,activation_fn=tf.nn.sigmoid,name = 'stat',weights=tf.random_uniform_initializer(0.1)).tensor
     return dyn_output
 
@@ -150,7 +151,7 @@ def recog_model_dyn(input_tensor,dim_z,dim_x):
 
     ## Construct the shared layers of the network
     shared_layers = (pt.wrap(input_tensor).
-                     reshape([None, dim_x, dim_x, 3]). ## Reshape input
+                     reshape([None, imsize, imsize, 3]). ## Reshape input
                      conv2d(5, 16, stride=2). ## Three layers of convolution: 32x32x4
                      conv2d(5, 32, stride=2). ## 16x16x8
                      conv2d(5, 64, stride=2). ## 8x8x16
@@ -222,7 +223,7 @@ def recog_model_dyn_stat_full(input_tensor,dim_z,dim_x,dim_v,batch_size):
 
     ## Construct the shared layers of the network
     shared_layers = (pt.wrap(input_tensor).
-                     reshape([None, dim_x, dim_x, 3]). ## Reshape input
+                     reshape([None, imsize, imsize, 3]). ## Reshape input
                      conv2d(5, 16, stride=2). ## Three layers of convolution: 32x32x4
                      conv2d(5, 32, stride=2). ## 16x16x8
                      conv2d(5, 64, stride=2). ## 8x8x16

@@ -1,6 +1,7 @@
 ## A place to store all the costs that we implement:
 import tensorflow as tf
 import numpy as np
+from config import batch_size,dim_z,imsize
 
 # The total cost that we will use to train our model is a
 # sum of two parts (as is always true of the elbo)
@@ -10,7 +11,7 @@ import numpy as np
 
 # The entropy in Z can be formulated as a function of the
 # Cholesky decomposition of Sigma (this is R).
-def entropy_cost(R,dim_z,batch_size):
+def entropy_cost(R):
     ## Entropy for a gaussian is a simple function of the covariance.
     logdet = -2*tf.reduce_sum(tf.log(tf.diag_part(R)+1e-10))
     return logdet/2+dim_z*batch_size/2*np.log(2*np.pi*np.exp(1))
@@ -18,7 +19,7 @@ def entropy_cost(R,dim_z,batch_size):
 # The joint distribution can further be formulated as sum of a
 # log likelihood and a prior over the structure of Z (which also encodes
 # dynamical information)
-def likelihood_cost(true_images,gen_images,gen_params,batch_size,dim_z,dim_x):
+def likelihood_cost(true_images,gen_images,gen_params):
     ## Let's impose a gaussian likelihood elementwise and call the
     ## log likelihood an RMSE:
     resvec_x = tf.reshape(true_images,[batch_size,-1])-tf.reshape(gen_images,[batch_size,-1])
@@ -32,10 +33,10 @@ def likelihood_cost(true_images,gen_images,gen_params,batch_size,dim_z,dim_x):
     ## We also have a cost coming from the log determinant in the
     ## denominator:
     denom = 0.5*tf.reduce_sum(tf.log(R_inv))*batch_size
-    prefactor = -0.5*(dim_x*dim_x*3)*np.log(2*np.pi)*batch_size
+    prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
     return denom+rmse+prefactor
 
-def regression_cost(true_images,gen_images,batch_size):
+def regression_cost(true_images,gen_images):
     ## Let's impose a gaussian likelihood elementwise and call the
     ## log likelihood an RMSE:
     resvec_x = tf.reshape(true_images,[batch_size,-1])-tf.reshape(gen_images,[batch_size,-1])
@@ -51,7 +52,7 @@ def regression_cost(true_images,gen_images,batch_size):
     # prefactor = -0.5*(dim_x*dim_x*3)*np.log(2*np.pi)*batch_size
     return rmse
 
-def likelihood_cost_vec(true_images,gen_images,gen_params,batch_size,dim_z,dim_x):
+def likelihood_cost_vec(true_images,gen_images,gen_params):
     ## Let's impose a gaussian likelihood elementwise and call the
     ## log likelihood an RMSE:
     resvec_x = tf.reshape(true_images-gen_images,[batch_size,])
@@ -65,10 +66,10 @@ def likelihood_cost_vec(true_images,gen_images,gen_params,batch_size,dim_z,dim_x
     ## We also have a cost coming from the log determinant in the
     ## denominator:
     denom = 0.5*tf.reduce_sum(tf.log(R_inv))*batch_size
-    prefactor = -0.5*(dim_x)*np.log(2*np.pi)*batch_size
+    prefactor = -0.5*(imsize)*np.log(2*np.pi)*batch_size
     return denom+rmse+prefactor
 
-def prior_cost(samples,Q_inv_gen,Q0_inv_gen,gen_params,dim_z,batch_size,dim_x):
+def prior_cost(samples,Q_inv_gen,Q0_inv_gen,gen_params):
     ## The prior cost is defined on the latent variables. We require
     ## That they are smooth in time:
 
