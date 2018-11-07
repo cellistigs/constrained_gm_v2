@@ -7,6 +7,38 @@ from cgm_train.deconv import deconv2d
 from config import imsize,dim_z,dim_v
 
 # Global network parameters
+def recog_model_regress_split(input_tensor,output_dim = dim_z+dim_v):
+    ''' The input to this network (input_tensor) is a set of batches, each of which has
+    temporal ordering. i.e. the examples in a single batch follow temporal dynamics
+    We do this because we want to take the batched output, and apply dynamical transformations
+    to it in order to generate samples from the appropriate approximate posterior.
+    We assume that it comes as a 2d tensor, as [batch, everything]
+    '''
+    ## We assume we have a latent system with dimension 2
+
+    ## Construct the shared layers of the network
+    shared_layers = (pt.wrap(input_tensor).
+                     reshape([None, imsize, imsize, 3]). ## Reshape input
+                     conv2d(5, 16, stride=2). ## Three layers of convolution: 32x32x4
+                     conv2d(5, 32, stride=2). ## 16x16x8
+                     conv2d(5, 64, stride=2). ## 8x8x16
+                     conv2d(5, 128, stride=2). ## 4x4x32
+                     conv2d(5, 256, stride=2). ## 2x2x
+                     conv2d(5, 512, stride=2). ## 1x1x
+                     dropout(0.9).
+                     flatten())
+    # shared_layers = (pt.wrap(input_tensor).
+    #                  reshape([None, dim_x, dim_x, 3]). ## Reshape input
+    #                  conv2d(5, 16, stride=2). ## Three layers of convolution: 32x32x4
+    #                  conv2d(5, 32, stride=2). ## 16x16x8
+    #                  conv2d(5, 64, stride=2). ## 8x8x16
+    #                  dropout(0.9).
+    #                  flatten())
+
+    dyn_output = shared_layers.fully_connected(output_dim,activation_fn=tf.nn.sigmoid,name = 'out',weights=tf.random_uniform_initializer(0.1)).tensor
+    # stat_output = shared_layers.fully_connected(dim_v,activation_fn=tf.nn.sigmoid,name = 'stat',weights=tf.random_uniform_initializer(0.1)).tensor
+    return dyn_output
+
 
 def recog_model_regress(input_tensor):
     ''' The input to this network (input_tensor) is a set of batches, each of which has
@@ -307,6 +339,53 @@ def gener_model_dyn_full_motion(hidden_activations):
             deconv2d(5,32,stride = 2).
             deconv2d(5,16,stride = 2).
             deconv2d(5,5,stride = 2,activation_fn=tf.nn.sigmoid)).tensor # 32x32x4 ## Now ask to regenerate the meshgrid as well.
+
+def gener_model_dyn_full_grid_basic(grid,scalar):
+    '''This is a complicated architecture that will merge the grid and scalar outputs at an
+    appropriate output point.
+    '''
+    scalar_0 = tf.layers.dense(scalar,1*1*512,activation=None,weights=tf.random_uniform_initializer(0.1))
+    scalar_1 = tf.layers.conv2d_transpose(tf.reshape(scalar_0,[None,1,1,512]),256,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+    scalar_2 = tf.layers.conv2d_transpose(scalar_1,128,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+    scalar_3 = tf.layers.conv2d_transpose(scalar_2,64,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+    scalar_4 = tf.layers.conv2d_transpose(scalar_3,32,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+
+    grid_0 = tf.layers.conv2d_transpose(grid,16,5,strides = 1,padding = 'same',activation = tf.nn.elu)
+    grid_1 = tf.layers.conv2d_transpose(grid_0,16,5,strides = 1,padding = 'same',activation = tf.nn.elu)
+
+    together = tf.concat((scalar_4,grid_1),axis = -1)
+
+    full_0 = tf.layers.conv2d_transpose(together,16,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+    full_1 = tf.layers.conv2d_transpose(full_0,5,5,strides = 2,padding = 'same',activation = tf.nn.elu)
+
+    # (pt.wrap(together). ## Now the scalar input and the grid is merged
+    #         deconv2d(5,16,stride = 2).
+    #         deconv2d(5,5,stride = 2,activation_fn=tf.nn.sigmoid)).tensor # 32x32x4 ## Now ask to regenerate the meshgrid as well.
+    return full_1
+
+
+def gener_model_dyn_full_grid(grid,scalar):
+    '''This is a complicated architecture that will merge the grid and scalar outputs at an
+    appropriate output point.
+    '''
+    scalar_only = (pt.wrap(scalar).
+                   fully_connected(1*1*512,activation_fn=None,weights=tf.random_uniform_initializer(0.1)).
+                   reshape([None,1,1,512]).
+                   deconv2d(5,256,stride = 2).
+                   deconv2d(5,128,stride = 2).
+                   deconv2d(5,64,stride = 2).
+                   deconv2d(5,32,stride = 2)).tensor ## 16x16x32
+
+    grid_only = (pt.wrap(grid).
+            deconv2d(5,16,stride = 1).
+            deconv2d(5,16,stride = 1)).tensor
+
+    together = tf.concat((scalar_only,grid_only),axis = -1)
+
+    full = (pt.wrap(together). ## Now the scalar input and the grid is merged
+            deconv2d(5,16,stride = 2).
+            deconv2d(5,5,stride = 2,activation_fn=tf.nn.sigmoid)).tensor # 32x32x4 ## Now ask to regenerate the meshgrid as well.
+    return full
 
 def gener_model_mini(hidden_activations):
     '''The input to this network (hidden_activations) is a set of sampled activations that
