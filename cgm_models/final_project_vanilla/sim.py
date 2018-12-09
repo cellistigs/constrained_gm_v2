@@ -16,7 +16,7 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 
 ## We are going to simulate from the same dataset that we trained.
 ## Load in the data:
-filenames = ['../../../../../Blei/mother_true.tfrecords']
+filenames = ['../../data/mother_true.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 
 ## Push it through the network:
@@ -28,7 +28,7 @@ saver = tf.train.Saver(var_list = var_list)
 
 checkpointdirectory = videoname
 init = tf.global_variables_initializer()
-
+epoch = 1181
 with tf.Session() as sess:
     sess.run(init)
     sess.run(initializer)
