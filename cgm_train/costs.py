@@ -3,6 +3,23 @@ import tensorflow as tf
 import numpy as np
 from config import batch_size,dim_z,imsize
 
+# Formulate the cost for a vanilla variational autoencoder:
+def VAE_likelihood_MC(input,data_sample,sigma):
+    nb_samples = tf.shape(data_sample)[0]
+    input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,1,1,1,1))
+    e = input_expand-data_sample
+    se = 0.5*tf.square(e)
+    mse = tf.reduce_mean(se,axis = 0) ## multiple samples
+    cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
+    return cost
+
+def D_kl_prior_cost(mean,log_sigma):
+    per_data = -dim_z/2.*np.log(2*np.pi)-0.5*tf.reduce_sum(tf.square(mean)+tf.square(tf.exp(log_sigma)),axis =1)
+    total = tf.reduce_sum(per_data)
+    return total
+
+###### Costs for fLDS
+
 # The total cost that we will use to train our model is a
 # sum of two parts (as is always true of the elbo)
 # We can best parse our cost by considering it as an entropic term

@@ -3,6 +3,158 @@ import numpy as np
 import tensorflow as tf
 from config import batch_size,imsize,dim_z,dim_v,training
 
+
+### We want a vanilla convolutional autoencoder as a performance baseline. Give the
+### convolution and convolution transpose parts:
+
+# Define a convolve+batchnorm layer. Both of these assume that the input has been appropriately shaped
+# prior to entry.
+# Name gives a prefix for the names of each layer included here- like a miniature scope.
+def conv2d_bn(input,filters,kernel,name,
+              strides = 2,
+              padding = 'same',
+              activation = tf.nn.elu,
+              training = False,
+              bn = True):
+    if bn == True:
+        convd = tf.layers.conv2d(input,filters,kernel,strides = strides,padding = padding,activation = activation,name = name+'/conv')
+        normed = tf.layers.batch_normalization(convd,training = training, name = name+'/bn')
+    else:
+        normed = tf.layers.conv2d(input,filters,kernel,strides = strides,padding = padding,activation = activation,name = name+'/conv')
+    return normed
+
+# Likewise define an adjoint convolution:
+def adjconv2d_bn(input,filters,kernel,name,
+                 strides = 2,
+                 padding = 'same',
+                 activation = tf.nn.elu,
+                 training = False,
+                 bn = True):
+    if bn == True:
+        adjconvd = tf.layers.conv2d_transpose(input,filters,kernel,strides = strides,padding = padding,activation = activation,name = name+'/adjconv')
+        normed = tf.layers.batch_normalization(adjconvd,training = training, name = name+'/bn')
+    else:
+        normed = tf.layers.conv2d_transpose(input,filters,kernel,strides = strides,padding = padding,activation = activation,name = name+'/adjconv')
+    return normed
+
+# Define a strided layer recursion on convolutions using the above:
+def conv2d_bn_to_vector(input,name,
+                        kernel=5,
+                        seed_filter_nb = 4,
+                        strides = 2,
+                        filter_seq = None,
+                        training=True):
+    # define the vector of filters to use if not specified. Default to convolution down to 1x1.
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    if filter_seq == None:
+        nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+        filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    else:
+        try:
+            len(filter_seq) <= nb_layers
+        except ValueError:
+            print('Filter sequence suggests impossible architecture for input and strides given.')
+
+    # Iterate through the architecture:
+    x = input
+    for i,filter_nb in enumerate(filter_seq):
+        # Last layer gets no batch norm. This may not matter for convolution down.
+        if i == len(filter_seq)-1:
+            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),bn = False)
+        else:
+            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training = training)
+    return x
+
+# Define a strided layer recursion on adjoint convolutions using the above:
+def adjconv2d_bn_to_vector(input,name,
+                           kernel=5,
+                           seed_filter_nb = 4,
+                           img_depth = 3,
+                           strides = 2,
+                           filter_seq = None,
+                           training = True):
+    # define the vector of filters to use if not specified. Default to convolution from to 1x1 to image.
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    if filter_seq == None:
+        nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+        filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+        filter_seq = filter_seq[::-1]
+        # Replace the last layer with image-depth filters:
+        filter_seq[-1] = img_depth
+    else:
+        try:
+            len(filter_seq) <= nb_layers
+        except ValueError:
+            print('Filter sequence suggests impossible architecture for input and strides given.')
+        try:
+            filter_seq[-1] = img_depth
+
+        except ValueError:
+            print('Output of last layer should have depth matching image.')
+    # Iterate through the architecture:
+    x = input
+    for i,filter_nb in enumerate(filter_seq):
+
+        if i == len(filter_seq)-1:
+            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),activation = tf.nn.sigmoid,bn = False)
+        else:
+            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training=training)
+    return x
+
+## Vanilla recognition model. Infers the means and standard deviation for our factor
+## model prior.
+
+def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True):
+    "A vanilla architecture to process inputs into latent variable parameters."
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
+    conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
+    inference_means = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/means')
+    inference_logstds = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/logstds')
+    return inference_means,inference_logstds
+
+def gener_model_vanilla(input_tensor,name,strides = 2,seed_filter_nb = 4,training=True):
+    "A vanilla architecture to generate data from samples of the generative model."
+
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    filter_seq = filter_seq[::-1]
+
+    input_proj = tf.layers.dense(input_tensor,filter_seq[0],activation = None)
+    input_shaped = tf.reshape(input_proj,[-1,1,1,filter_seq[0]])
+    image = adjconv2d_bn_to_vector(input_shaped,strides=strides,filter_seq= filter_seq,name = name,training=training)
+
+    ## Already in 0-1 range. Should we add some noise?
+    return image
+
+## This is a construction that wraps the recognition and generative models, and
+## handles the complexities involved in sampling multiple times from the prior.
+## Also sets up the tensorboard summary statistics.
+## TODO: Set up placeholder variables, and a switch for training vs. inference mode.
+def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True):
+    mean,logstd = recog_model_vanilla(input_tensor,dim_z,name+'/recog',training=training)
+    ## reparametrization trick
+    # First broadcast mean and standard deviation appropriately
+    mean_broadcast = tf.tile(tf.expand_dims(mean,0),(nb_samples,1,1))
+    std_broadcast = tf.tile(tf.expand_dims(tf.exp(logstd),0),(nb_samples,1,1))
+
+    # Sample noise:
+    eps = tf.random_normal((nb_samples,batch_size,dim_z))
+
+    # The trick itself:
+    samples = mean_broadcast+std_broadcast*eps
+
+    # We use the map function to apply the transformation everything simultaneously:
+    gen_func = lambda input: gener_model_vanilla(input,name+'/gener',training=training)
+    out = tf.map_fn(gen_func,samples) ## Parallellize here?
+
+    ## In order to evaluate performance, we need to evaluate quantities that are related to
+    ## the statistics of our variational distributions (parameters of z) and the final likelihood (samples of x)
+    return out,mean,logstd
+
+
 ### Take out the residual and look at a simple linear sum at the end:
 def gener_model_dyn_full_grid_background_additive(grid,background):
     '''This is a complicated architecture that will merge the grid and scalar outputs at an

@@ -241,9 +241,42 @@ def preprocess_eff_many_bonly(serialized_example):
 #     pos = (tf.reshape(tf.cast(pos[:2],tf.float32),[1,2])+20)/40
     return image,label,video,params
 
+def preprocess_VAE_vanilla(serialized_example):
+    featureset = {'video': tf.FixedLenFeature([],tf.string),
+                  'frame': tf.FixedLenFeature([],tf.int64),
+                  'image': tf.FixedLenFeature([],tf.string),
+                  'mouse': tf.FixedLenFeature([],tf.int64),
+                  'position':tf.FixedLenFeature([],tf.string)}
 
+    features = tf.parse_single_example(serialized_example,features = featureset)
+    image = tf.decode_raw(features['image'],tf.uint8)
+    image = tf.reshape(image,[imsize,imsize,3])
+    image = tf.image.resize_images(image,[imsize,imsize])
+    image = tf.cast(image,tf.float32)
+    mouse = features['frame']
+    video = features['video']
+    position = tf.decode_raw(features['position'],tf.float64)
+    return image,position,mouse,video
+
+
+################################################################################
 ## Now specify separate pipelines that will give us the inputs (defined with placeholders)
 ## to feed to an encoder network, a decoder network, or full training.
+
+def VAE_pipeline(filenames,batch_size,imsize):
+    base_dataset = tf.data.TFRecordDataset(filenames)
+    nb_shards = 4
+    index_dataset = tf.data.Dataset.range(nb_shards)
+    mixed = index_dataset.apply(tf.contrib.data.parallel_interleave(lambda x:base_dataset.shard(nb_shards,x).map(preprocess_VAE_vanilla).repeat(2).shuffle(1000),cycle_length = 4,block_length = 10,sloppy = True, prefetch_input_elements=1000))
+    # final = mixed.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    final = mixed.batch(batch_size)
+
+    iterator = tf.data.Iterator.from_structure(final.output_types,final.output_shapes)
+    im,position,mouse,video = iterator.get_next()
+    initz = iterator.make_initializer(final,'init_op')
+
+    return im,position,mouse,video,initz
+
 def temppipeline_0(filenames,batch_size,imsize):
     # Apply preprocessing
     base_dataset = tf.data.TFRecordDataset(filenames)
