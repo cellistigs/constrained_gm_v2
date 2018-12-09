@@ -1,4 +1,7 @@
 import tensorflow as tf
+import sys
+for p in sys.path:
+	print(p)
 import numpy as np
 import imageio
 from skimage.transform import resize
@@ -15,7 +18,7 @@ from cgm_train.input import *
 from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname
 
 ## Load in the data:
-filenames = ['../../../../../Blei/mother_true.tfrecords']
+filenames = ['../../data/mother_true.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 
 print(ims,'DHDE')
