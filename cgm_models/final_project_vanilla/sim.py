@@ -25,8 +25,8 @@ out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=False)
 var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
 # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
 saver = tf.train.Saver(var_list = var_list)
-
 checkpointdirectory = videoname
+print(var_list)
 init = tf.global_variables_initializer()
 epoch = 1181
 with tf.Session() as sess:
