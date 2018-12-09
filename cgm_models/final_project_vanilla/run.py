@@ -21,7 +21,12 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 filenames = ['../../data/mother_true.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 
-print(ims,'DHDE')
+load == True
+if load = True:
+    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
+    saver = tf.train.Saver(var_list = var_list)
+    checkpointdirectory = videoname
 
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
@@ -50,9 +55,11 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-
+epoch = 1181
 with tf.Session() as sess:
     sess.run(init)
+    if load == True:
+        saver.restore(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
     max_epochs = MAX_EPOCHS
     scale = 1.0
     for epoch in range(max_epochs):
