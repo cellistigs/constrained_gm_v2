@@ -33,10 +33,10 @@ if load == True:
 ll = VAE_likelihood_MC(ims/255.,out,1)
 kl = D_kl_prior_cost(mean,logstd)
 
-full_cost = ll+kl
+full_elbo = ll+kl
 
 ## Define an optimizer:
-optimizer = tf.train.AdamOptimizer(learning_rate,epsilon=epsilon).minimize(full_cost)
+optimizer = tf.train.AdamOptimizer(learning_rate,epsilon=epsilon).minimize(-full_elbo)
 
 ## Now run iterative training:
 print('Running Tensorflow model')
@@ -70,14 +70,14 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost = sess.run([optimizer,full_cost])
+                _,cost = sess.run([optimizer,full_elbo])
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
         losses.append(epoch_cost)
         print('Loss for epoch '+str(epoch)+': '+str(epoch_cost))
-
         save_path = saver.save(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
+        if epoch%100 == 0:
+            np.save(checkpointdirectory+'/loss',losses)      
 
-np.save(checkpointdirectory+'/loss',losses)
