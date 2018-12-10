@@ -26,11 +26,11 @@ native_imagemean = 40
 ### Internal variables: things that we should keep track of in the course of training
 ### and passing inputs through our models
 dim_v = imsize*imsize 
-dim_z = 2
+dim_z = 16 
 
 ### Training variables: variables that track parameters relevant for trianing
-batch_size = 20
-learning_rate = 1e-7
+batch_size = 100
+learning_rate = 1e-5
 epsilon = 1e-10
-MAX_EPOCHS = 100000
+MAX_EPOCHS = 20000
 training = True

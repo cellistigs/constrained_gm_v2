@@ -14,7 +14,7 @@ def VAE_likelihood_MC(input,data_sample,sigma):
     return cost
 
 def D_kl_prior_cost(mean,log_sigma):
-    per_data = -dim_z/2.*np.log(2*np.pi)-0.5*tf.reduce_sum(tf.square(mean)+tf.square(tf.exp(log_sigma)),axis =1)
+    per_data = -dim_z/2.+0.5*(tf.reduce_sum(1+2*(log_sigma)-tf.square(mean)-tf.square(tf.exp(log_sigma)),axis =1))
     total = tf.reduce_sum(per_data)
     return total
 

@@ -1,7 +1,5 @@
 import tensorflow as tf
 import sys
-for p in sys.path:
-	print(p)
 import numpy as np
 import imageio
 from skimage.transform import resize
@@ -18,21 +16,21 @@ from cgm_train.input import *
 from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname
 
 ## Load in the data:
-filenames = ['../../data/mother_true.tfrecords']
+filenames = ['../../data/mother_test.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
-
-load == True
-if load = True:
-    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
-    # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
-    saver = tf.train.Saver(var_list = var_list)
-    checkpointdirectory = videoname
 
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
 
+
+load = False 
+if load == True:
+    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
+    saver = tf.train.Saver(var_list = var_list)
+    checkpointdirectory = videoname
 ## Calculate the cost:
-ll = VAE_likelihood_MC(ims,out,1)
+ll = VAE_likelihood_MC(ims/255.,out,1)
 kl = D_kl_prior_cost(mean,logstd)
 
 full_cost = ll+kl
