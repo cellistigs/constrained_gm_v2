@@ -108,9 +108,9 @@ def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,t
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
-    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    input_shaped = tf.reshape(input_tensor,[-1,imsize,imsize,3])
     conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
-    conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
+    conv_out_reshaped = tf.reshape(conv_out,[-1,filter_seq[-1]])
     inference_means = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/means')
     inference_logstds = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/logstds')
     return inference_means,inference_logstds
@@ -147,12 +147,16 @@ def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True):
     samples = mean_broadcast+std_broadcast*eps
 
     # We use the map function to apply the transformation everything simultaneously:
-    gen_func = lambda input: gener_model_vanilla(input,name+'/gener',training=training)
-    out = tf.map_fn(gen_func,samples) ## Parallellize here?
+    #gen_func = lambda input: gener_model_vanilla(input,name+'/gener',training=training)
+    #out = tf.map_fn(gen_func,samples) ## Parallellize here?
+    ## using map_fn does not play well with batch norm. 
+    samples_reshape = tf.reshape(samples,(nb_samples*batch_size,dim_z))
+    out = gener_model_vanilla(samples,name+'/gener',training = training)
+    out_reshaped = tf.reshape(out,(nb_samples,batch_size,imsize,imsize,3))    
 
     ## In order to evaluate performance, we need to evaluate quantities that are related to
     ## the statistics of our variational distributions (parameters of z) and the final likelihood (samples of x)
-    return out,mean,logstd
+    return out_reshaped,mean,logstd
 
 
 ### Take out the residual and look at a simple linear sum at the end:

@@ -23,7 +23,7 @@ ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
 
 
-load = False 
+load = True 
 if load == True:
     var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
@@ -36,7 +36,9 @@ kl = D_kl_prior_cost(mean,logstd)
 full_elbo = ll+kl
 
 ## Define an optimizer:
-optimizer = tf.train.AdamOptimizer(learning_rate,epsilon=epsilon).minimize(-full_elbo)
+extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+with tf.control_dependencies(extra_update_ops):
+    optimizer = tf.train.AdamOptimizer(learning_rate,epsilon=epsilon).minimize(-full_elbo)
 
 ## Now run iterative training:
 print('Running Tensorflow model')
@@ -53,7 +55,7 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-epoch = 1181
+epoch = 11880
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
