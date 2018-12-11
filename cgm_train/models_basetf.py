@@ -103,7 +103,7 @@ def adjconv2d_bn_to_vector(input,name,
 
 ## Vanilla recognition model. Infers the means and standard deviation for our factor
 ## model prior.
-
+## q(z|x)
 def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True):
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
@@ -115,6 +115,8 @@ def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,t
     inference_logstds = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/logstds')
     return inference_means,inference_logstds
 
+## Vanilla generative model. Infers the mean of the image from a sample of the latent variables.
+## p(x|z)
 def gener_model_vanilla(input_tensor,name,strides = 2,seed_filter_nb = 4,training=True):
     "A vanilla architecture to generate data from samples of the generative model."
 
@@ -128,6 +130,66 @@ def gener_model_vanilla(input_tensor,name,strides = 2,seed_filter_nb = 4,trainin
 
     ## Already in 0-1 range. Should we add some noise?
     return image
+
+## Category recognition model. Infers the probability of each category from data.
+## q(y|x).
+def recog_model_cat(input_tensor,dim_y,name,strides = 2,seed_filter_nb = 4,training=True):
+    "A vanilla architecture to process inputs into latent variable parameters."
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
+    conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
+    cat_probs = tf.layers.dense(conv_out_reshaped,dim_y,activation = tf.nn.softmax,name = name+'/catprobs')
+
+    return cat_probs
+
+## Generative model to infer distribution of continuous latents from category labels, p(z|y)
+def gener_model_mixture(input_tensor,dim_z,name):
+    # Use a two layer mlp:
+    nb_hidden = 512
+    # First layer should take batch x 1:
+    hidden = tf.layers.dense(input_tensor,nb_hidden,activation = tf.nn.elu,name = name+'/gmix1')
+    # Second layer should return dimension z
+    mixmeans = tf.layers.dense(hidden,dim_z,activation = None,name = name+'/gmix_means')
+    mixlogstds = tf.layers.dense(hidden,dim_z,activation = None, name = name+'/gmix_logstds')
+
+    return mixmeans,mixlogstds
+
+## Part of recognition model to infer lower-d representation of images that can be loaded into
+## by the weights from the vanilla network:
+def recog_model_imageprocess(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True):
+    "A vanilla architecture to process inputs into latent variable parameters."
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
+    conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
+    return conv_out_reshaped
+
+## Recognition model to infer distribution of continuous latents from categories and pre-compressed
+## latent codes q(z|x,y)
+def recog_model_mixture(input_tensor,dim_y,dim_z,name):
+    # First make a one-hot representation of possible latent codes:
+    ## batch_size x cluster number
+    index = [i for i in range(dim_y) for j in range(batch_size)]
+    cat_labels = tf.one_hot(index,depth = dim_y,axis = -1)
+
+    # Now we will repeat the dataset cluster number of times:
+    rep_data = tf.tile(input_tensor,[dim_y,1])
+
+    # Concatenate:
+    full_data = tf.concat((cat_labels,rep_data),axis = 1)
+
+    # MLP with two hidden layer:
+    shared_hidden0 = tf.layers.dense(full_data,512,activation = tf.nn.elu,name = name+'/rmix_0')
+    shared_hidden1 = tf.layers.dense(full_data,512,activation = tf.nn.elu,name = name+'/rmix_1')
+
+    # Output into means and logstds:
+    inference_means = tf.layers.dense(shared_hidden1,dim_z,activation = None,name = name+'recog_means')
+    inference_logstds = tf.layers.dense(shared_hidden1,dim_z,activation = None, name = name+'recog_logstds')
+
+    return inference_means,inference_logstds
 
 ## This is a construction that wraps the recognition and generative models, and
 ## handles the complexities involved in sampling multiple times from the prior.
@@ -153,6 +215,8 @@ def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True):
     ## In order to evaluate performance, we need to evaluate quantities that are related to
     ## the statistics of our variational distributions (parameters of z) and the final likelihood (samples of x)
     return out,mean,logstd
+
+## We extend the standard VAE construction to a Gaussian mixture VAE. This involves alterations to the
 
 
 ### Take out the residual and look at a simple linear sum at the end:
