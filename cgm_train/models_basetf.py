@@ -103,15 +103,18 @@ def adjconv2d_bn_to_vector(input,name,
 ## Vanilla recognition model. Infers the means and standard deviation for our factor
 ## model prior.
 ## q(z|x)
-def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True):
+def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True,keep_prob = 0.9):
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
     input_shaped = tf.reshape(input_tensor,[-1,imsize,imsize,nb_channels])
     conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
-    conv_out_reshaped = tf.reshape(conv_out,[-1,filter_seq[-1]])
+    dropped = tf.nn.dropout(conv_out, keep_prob)
+    flat_out = tf.contrib.layers.flatten(dropped)
+    conv_out_reshaped = tf.reshape(flat_out,[-1,filter_seq[-1]])
     inference_means = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/means')
     inference_logstds = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/logstds')
+    print('recognition model has '+str(nb_layers)+' layers, with filte sequence: '+str(filter_seq))
     return inference_means,inference_logstds
 
 ## Vanilla generative model. Infers the mean of the image from a sample of the latent variables.
@@ -126,7 +129,7 @@ def gener_model_vanilla(input_tensor,name,strides = 2,seed_filter_nb = 4,trainin
     input_proj = tf.layers.dense(input_tensor,filter_seq[0],activation = None)
     input_shaped = tf.reshape(input_proj,[-1,1,1,filter_seq[0]])
     image = adjconv2d_bn_to_vector(input_shaped,strides=strides,filter_seq= filter_seq,name = name,training=training)
-
+    print('generative model has '+str(nb_layers)+' layers, with filte sequence: '+str(filter_seq))
     ## Already in 0-1 range. Should we add some noise?
     return image
 
