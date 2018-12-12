@@ -112,7 +112,7 @@ def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,t
     dropped = tf.nn.dropout(conv_out, keep_prob)
     flat_out = tf.contrib.layers.flatten(dropped)
     inference_means = tf.layers.dense(flat_out,dim_z,activation = None,name = name+'/means')
-    inference_logstds = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/logstds')
+    inference_logstds = tf.layers.dense(flat_out,dim_z,activation = None,name = name+'/logstds')
     print('recognition model has '+str(nb_layers)+' layers, with filte sequence: '+str(filter_seq))
     return inference_means,inference_logstds
 
