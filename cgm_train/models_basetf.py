@@ -62,7 +62,7 @@ def conv2d_bn_to_vector(input,name,
         if i == len(filter_seq)-1:
             x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),bn = False)
         else:
-            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training = training)
+            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training = training,bn= False)
     return x
 
 # Define a strided layer recursion on adjoint convolutions using the above:
@@ -97,7 +97,7 @@ def adjconv2d_bn_to_vector(input,name,
         if i == len(filter_seq)-1:
             x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),activation = tf.nn.sigmoid,bn = False)
         else:
-            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training=training)
+            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training=training,bn = False)
     return x
 
 ## Vanilla recognition model. Infers the means and standard deviation for our factor
