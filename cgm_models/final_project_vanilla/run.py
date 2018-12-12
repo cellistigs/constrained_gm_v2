@@ -55,7 +55,7 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-epoch = 11880
+epoch = 57 
 with tf.Session() as sess:
     sess.run(init)
     if load == True:

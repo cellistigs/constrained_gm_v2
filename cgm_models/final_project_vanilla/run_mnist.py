@@ -86,21 +86,12 @@ with tf.Session() as sess:
                 progress = i/(1000*1/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,lik,cro = sess.run([optimizer,full_elbo,ll,kl])
+                _,cost,gt,output = sess.run([optimizer,full_elbo,ims,out])
                 epoch_cost+=cost
                 i+=1
 
             except tf.errors.OutOfRangeError:
                 break
-        print(lik,cro)
-        # gt_expand = tf.tile(tf.expand_dims(gt,0),(nb_samples,1,1,1,1))
-        # for i in range(5):
-        #     for j in range(5):
-        #         fig,ax = plt.subplots(2,1)
-        #         ax[0].imshow(gt_expand[i,j,:,:,:])
-        #         ax[1].imshow(output[i,j,:,:,:])
-        #         ax[0].set_title('orig'+'sample'+str(i)+'img')
-        #         ax[1].set_title('reconst')
         if epoch % 20 == 0:
             fig,ax = plt.subplots(2,3)
             ax[0,0].imshow(output[0,0,:,:,0])
