@@ -9,16 +9,16 @@ def VAE_likelihood_MC(input,data_sample):
     data_samples_flat = tf.reshape(data_sample,[nb_samples,batch_size,-1])
     input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,1,1,1,1))
     input_flat = tf.reshape(input_expand,[nb_samples,batch_size,-1])
-    se = -0.5*tf.reduce_sum(tf.squared_difference(input_flat,data_samples_flat),-1)
+    se = -0.5*tf.reduce_sum(tf.square(input_flat-data_samples_flat),-1)
     rmse = tf.reduce_mean(se,0)
-    prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
+    # prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
     ## assume sigma 1 => log denominator is 0
-    cost = tf.reduce_sum(tf.reduce_mean(rmse,axis = 0))
+    cost = tf.reduce_sum(rmse)
     # e = input_flat-data_sample
     # se = -0.5*tf.square(e)
     # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
     # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
-    return cost+prefactor
+    return cost
 
 def VAE_likelihood_MC_debug(input,data_sample,sigma):
     nb_samples = tf.shape(data_sample)[0]
