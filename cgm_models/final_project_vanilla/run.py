@@ -18,19 +18,18 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 ## Load in the data:
 filenames = ['../../data/mother_test.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
-
+ims = ims/255.
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
 
-
-load = True 
+load = False
 if load == True:
     var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
     saver = tf.train.Saver(var_list = var_list)
     checkpointdirectory = videoname
 ## Calculate the cost:
-ll = VAE_likelihood_MC(ims/255.,out,1)
+ll = VAE_likelihood_MC(ims,out)
 kl = D_kl_prior_cost(mean,logstd)
 
 full_elbo = ll+kl
@@ -77,9 +76,18 @@ with tf.Session() as sess:
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
+        if epoch % 200 == 0:
+            fig,ax = plt.subplots(2,3)
+            ax[0,0].imshow(output[0,0,:,:,0])
+            ax[1,0].imshow(gt[0,:,:,0])
+            ax[0,1].imshow(output[0,1,:,:,0])
+            ax[1,1].imshow(gt[1,:,:,0])
+            ax[0,2].imshow(output[0,2,:,:,0])
+            ax[1,2].imshow(gt[2,:,:,0])
+            plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
+            plt.close()
         losses.append(epoch_cost)
         print('Loss for epoch '+str(epoch)+': '+str(epoch_cost))
         save_path = saver.save(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
         if epoch%100 == 0:
-            np.save(checkpointdirectory+'/loss',losses)      
-
+            np.save(checkpointdirectory+'/loss',losses)
