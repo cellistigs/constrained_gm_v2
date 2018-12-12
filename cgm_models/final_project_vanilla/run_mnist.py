@@ -36,7 +36,7 @@ print(ims.shape)
 ims = tf.image.resize_images(tf.expand_dims(ims,-1),[imsize,imsize])/255.
 print(ims.shape)
 ## Push it through the network:
-out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True,nb_samples = 1)
+out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True,nb_samples = 5)
 
 
 load = False
@@ -46,7 +46,7 @@ if load == True:
     saver = tf.train.Saver(var_list = var_list)
     checkpointdirectory = videoname
 ## Calculate the cost:
-ll = VAE_likelihood_MC(ims,out,1)
+ll = VAE_likelihood_MC(ims,out)
 kl = D_kl_prior_cost(mean,logstd)
 
 full_elbo = ll+kl
@@ -71,11 +71,11 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-epoch = 11880
+epoch = 440 
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
-        saver.restore(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
+        saver.restore(sess,checkpointdirectory+'/modelep_mnist'+str(epoch)+'.ckpt')
     max_epochs = MAX_EPOCHS
     scale = 1.0
     for epoch in range(max_epochs):
