@@ -94,11 +94,12 @@ with tf.Session() as sess:
                 progress = i/(1000*1/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,gt = sess.run([optimizer,full_elbo,out,ims])
+                _,cost,lik,cro = sess.run([optimizer,full_elbo,ll,kl])
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
+        print(lik,cro)
         # gt_expand = tf.tile(tf.expand_dims(gt,0),(nb_samples,1,1,1,1))
         # for i in range(5):
         #     for j in range(5):
