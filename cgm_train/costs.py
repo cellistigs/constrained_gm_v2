@@ -4,13 +4,20 @@ import numpy as np
 from config import batch_size,dim_z,imsize
 
 # Formulate the cost for a vanilla variational autoencoder:
-def VAE_likelihood_MC(input,data_sample,sigma):
+def VAE_likelihood_MC(input,data_sample):
     nb_samples = tf.shape(data_sample)[0]
+    data_samples_flat = tf.reshape(data_sample,[nb_samples,batch_size,-1])
     input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,1,1,1,1))
-    e = input_expand-data_sample
-    se = -0.5*tf.square(e)
-    mse = tf.reduce_mean(se,axis = 0) ## multiple samples
-    cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
+    input_flat = tf.reshape(input_expand,[nb_samples,batch_size,-1])
+    se = -0.5*tf.reduce_sum(tf.squared_difference(input_flat,data_samples_flat),-1)
+    rmse = tf.reduce_mean(se,0)
+    prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
+    ## assume sigma 1 => log denominator is 0
+    cost = tf.reduce_sum(tf.reduce_mean(rmse+prefactor,axis = 0))
+    # e = input_flat-data_sample
+    # se = -0.5*tf.square(e)
+    # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
+    # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
     return cost
 
 def VAE_likelihood_MC_debug(input,data_sample,sigma):
@@ -52,9 +59,11 @@ def likelihood_cost(true_images,gen_images,gen_params):
     ## "Invert" your R_gen
     R_inv = (1./gen_params['R_gen']).astype('float32')
     R_inv_constant = R_inv[0]
-    rmse = -0.5*tf.reduce_sum(tf.matmul(resvec_x,tf.transpose(resvec_x)))*R_inv_constant
+    ##### NOTE: THIS SHOULD BE TRACE
+    # rmse = -0.5*tf.reduce_sum(tf.matmul(resvec_x,tf.transpose(resvec_x)))*R_inv_constant
+    rmse = -0.5*tf.trace(tf.matmul(resvec_x,tf.transpose(resvec_x)))*R_inv_constant
     ## If we were really multiplying elementwise by a matrix with R_inv on the
-    ## diagonal, it would be different.
+    ## diagonal, it would be different. ### NO IT WOULD NOT
 
     ## We also have a cost coming from the log determinant in the
     ## denominator:
