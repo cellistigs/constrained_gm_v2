@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import tensorflow as tf
-from config import batch_size,imsize,dim_z,dim_v,training
+from config import batch_size,imsize,dim_z,dim_v,training,nb_channels
 
 
 ### We want a vanilla convolutional autoencoder as a performance baseline. Give the
@@ -69,7 +69,6 @@ def conv2d_bn_to_vector(input,name,
 def adjconv2d_bn_to_vector(input,name,
                            kernel=5,
                            seed_filter_nb = 4,
-                           img_depth = 3,
                            strides = 2,
                            filter_seq = None,
                            training = True):
@@ -80,14 +79,14 @@ def adjconv2d_bn_to_vector(input,name,
         filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
         filter_seq = filter_seq[::-1]
         # Replace the last layer with image-depth filters:
-        filter_seq[-1] = img_depth
+        filter_seq[-1] = nb_channels
     else:
         try:
             len(filter_seq) <= nb_layers
         except ValueError:
             print('Filter sequence suggests impossible architecture for input and strides given.')
         try:
-            filter_seq[-1] = img_depth
+            filter_seq[-1] = nb_channels
 
         except ValueError:
             print('Output of last layer should have depth matching image.')
@@ -108,7 +107,7 @@ def recog_model_vanilla(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,t
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
-    input_shaped = tf.reshape(input_tensor,[-1,imsize,imsize,3])
+    input_shaped = tf.reshape(input_tensor,[-1,imsize,imsize,nb_channels])
     conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
     conv_out_reshaped = tf.reshape(conv_out,[-1,filter_seq[-1]])
     inference_means = tf.layers.dense(conv_out_reshaped,dim_z,activation = None,name = name+'/means')
@@ -137,7 +136,7 @@ def recog_model_cat(input_tensor,dim_y,name,strides = 2,seed_filter_nb = 4,train
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
-    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,nb_channels])
     conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
     conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
     cat_probs = tf.layers.dense(conv_out_reshaped,dim_y,activation = tf.nn.softmax,name = name+'/catprobs')
@@ -162,7 +161,7 @@ def recog_model_imageprocess(input_tensor,dim_z,name,strides = 2,seed_filter_nb 
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
-    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,3])
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,nb_channels])
     conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
     conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
     return conv_out_reshaped
@@ -217,7 +216,7 @@ def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True,sampl
     ## using map_fn does not play well with batch norm.
     samples_reshape = tf.reshape(samples,(nb_samples*batch_size,dim_z))
     out = gener_model_vanilla(samples,name+'/gener',training = training)
-    out_reshaped = tf.reshape(out,(nb_samples,batch_size,imsize,imsize,3))
+    out_reshaped = tf.reshape(out,(nb_samples,batch_size,imsize,imsize,nb_channels))
 
     ## In order to evaluate performance, we need to evaluate quantities that are related to
     ## the statistics of our variational distributions (parameters of z) and the final likelihood (samples of x)
