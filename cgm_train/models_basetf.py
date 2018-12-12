@@ -195,7 +195,7 @@ def recog_model_mixture(input_tensor,dim_y,dim_z,name):
 ## handles the complexities involved in sampling multiple times from the prior.
 ## Also sets up the tensorboard summary statistics.
 ## TODO: Set up placeholder variables, and a switch for training vs. inference mode.
-def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True):
+def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True,sample_mean = False):
     mean,logstd = recog_model_vanilla(input_tensor,dim_z,name+'/recog',training=training)
     ## reparametrization trick
     # First broadcast mean and standard deviation appropriately
@@ -206,15 +206,18 @@ def VAE_vanilla_graph(input_tensor,dim_z,name,nb_samples = 5,training=True):
     eps = tf.random_normal((nb_samples,batch_size,dim_z))
 
     # The trick itself:
-    samples = mean_broadcast+std_broadcast*eps
+    if sample_mean == True:
+        samples = mean_broadcast+std_broadcast*eps
+    else:
+        samples = mean_broadcast
 
     # We use the map function to apply the transformation everything simultaneously:
     #gen_func = lambda input: gener_model_vanilla(input,name+'/gener',training=training)
     #out = tf.map_fn(gen_func,samples) ## Parallellize here?
-    ## using map_fn does not play well with batch norm. 
+    ## using map_fn does not play well with batch norm.
     samples_reshape = tf.reshape(samples,(nb_samples*batch_size,dim_z))
     out = gener_model_vanilla(samples,name+'/gener',training = training)
-    out_reshaped = tf.reshape(out,(nb_samples,batch_size,imsize,imsize,3))    
+    out_reshaped = tf.reshape(out,(nb_samples,batch_size,imsize,imsize,3))
 
     ## In order to evaluate performance, we need to evaluate quantities that are related to
     ## the statistics of our variational distributions (parameters of z) and the final likelihood (samples of x)
