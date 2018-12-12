@@ -8,7 +8,7 @@ def VAE_likelihood_MC(input,data_sample,sigma):
     nb_samples = tf.shape(data_sample)[0]
     input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,1,1,1,1))
     e = input_expand-data_sample
-    se = 0.5*tf.square(e)
+    se = -0.5*tf.square(e)
     mse = tf.reduce_mean(se,axis = 0) ## multiple samples
     cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
     return cost
