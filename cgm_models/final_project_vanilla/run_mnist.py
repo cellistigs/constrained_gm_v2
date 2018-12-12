@@ -19,17 +19,9 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 ## Toy models for testing base functionality. This is in mnist.
 
 ## Load in the data:
-from sklearn import datasets
-digits = datasets.load_digits()
-digit_data = digits.data
-## Reshape:
-digit_data = digit_data.reshape(-1,imsize,imsize).astype(np.float32)
-## Add Channel:
-digit_data = digit_data[:,:,:,np.newaxis].repeat(3,axis=-1)
-## Normalize:
-digit_data = digit_data/np.max(digit_data)
-
-dataset = tf.data.Dataset.from_tensor_slices(digit_data)
+train, test = tf.keras.datasets.mnist.load_data()
+mnist_x, mnist_y = train
+dataset = tf.data.Dataset.from_tensor_slices(mnist_x[:2000,:,:])
 
 dataset.shuffle(batch_size*2).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
@@ -40,7 +32,9 @@ iterator = tf.data.Iterator.from_structure(batched.output_types,batched.output_s
 initializer = iterator.make_initializer(batched)
 
 ims = iterator.get_next()
-
+print(ims.shape)
+ims = tf.image.resize_images(tf.expand_dims(ims,-1),[imsize,imsize])/255.
+print(ims.shape)
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True,nb_samples = 1)
 
