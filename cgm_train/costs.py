@@ -13,12 +13,12 @@ def VAE_likelihood_MC(input,data_sample):
     rmse = tf.reduce_mean(se,0)
     prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
     ## assume sigma 1 => log denominator is 0
-    cost = tf.reduce_sum(tf.reduce_mean(rmse+prefactor,axis = 0))
+    cost = tf.reduce_sum(tf.reduce_mean(rmse,axis = 0))
     # e = input_flat-data_sample
     # se = -0.5*tf.square(e)
     # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
     # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
-    return cost
+    return cost+prefactor
 
 def VAE_likelihood_MC_debug(input,data_sample,sigma):
     nb_samples = tf.shape(data_sample)[0]
