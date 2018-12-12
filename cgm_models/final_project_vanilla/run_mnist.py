@@ -23,21 +23,19 @@ train, test = tf.keras.datasets.mnist.load_data()
 mnist_x, mnist_y = train
 dataset = tf.data.Dataset.from_tensor_slices(mnist_x[:2000,:,:])
 
-dataset.shuffle(batch_size*2).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+# dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
-batched = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+batched = dataset.shuffle(batch_size*2).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
 iterator = tf.data.Iterator.from_structure(batched.output_types,batched.output_shapes)
 
 initializer = iterator.make_initializer(batched)
 
 ims = iterator.get_next()
-print(ims.shape)
+
 ims = tf.image.resize_images(tf.expand_dims(ims,-1),[imsize,imsize])/255.
-print(ims.shape)
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True,nb_samples = 5)
-
 
 load = False
 if load == True:
@@ -91,6 +89,7 @@ with tf.Session() as sess:
                 _,cost,lik,cro = sess.run([optimizer,full_elbo,ll,kl])
                 epoch_cost+=cost
                 i+=1
+
             except tf.errors.OutOfRangeError:
                 break
         print(lik,cro)
@@ -102,7 +101,16 @@ with tf.Session() as sess:
         #         ax[1].imshow(output[i,j,:,:,:])
         #         ax[0].set_title('orig'+'sample'+str(i)+'img')
         #         ax[1].set_title('reconst')
-
+        if epoch % 20 == 0:
+            fig,ax = plt.subplots(2,3)
+            ax[0,0].imshow(output[0,0,:,:,0])
+            ax[1,0].imshow(gt[0,:,:,0])
+            ax[0,1].imshow(output[0,1,:,:,0])
+            ax[1,1].imshow(gt[1,:,:,0])
+            ax[0,2].imshow(output[0,2,:,:,0])
+            ax[1,2].imshow(gt[2,:,:,0])
+            plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
+            plt.close()
         losses.append(epoch_cost)
         print('Loss for epoch '+str(epoch)+': '+str(epoch_cost))
         save_path = saver.save(sess,checkpointdirectory+'/modelep_mnist'+str(epoch)+'.ckpt')

@@ -9,7 +9,7 @@ def VAE_likelihood_MC(input,data_sample):
     data_samples_flat = tf.reshape(data_sample,[nb_samples,batch_size,-1])
     input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,1,1,1,1))
     input_flat = tf.reshape(input_expand,[nb_samples,batch_size,-1])
-    se = -0.5*tf.reduce_sum(tf.squared_difference(input_flat,data_samples_flat),-1)
+    se = -0.5*tf.reduce_sum(tf.square(input_flat-data_samples_flat),-1)
     rmse = tf.reduce_mean(se,0)
     # prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
     ## assume sigma 1 => log denominator is 0
