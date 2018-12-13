@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import tensorflow as tf
-from config import batch_size,imsize,dim_z,dim_v,training,nb_channels
+from config import batch_size,imsize,dim_z,dim_v,nb_channels
 
 
 ### We want a vanilla convolutional autoencoder as a performance baseline. Give the
