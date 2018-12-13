@@ -22,7 +22,7 @@ ims = ims/255.
 ## Push it through the network:
 out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
 
-load = False
+load = True 
 if load == True:
     var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
@@ -54,7 +54,7 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-epoch = 57 
+epoch = 14232 
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
@@ -71,19 +71,19 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost = sess.run([optimizer,full_elbo])
+                _,cost,output,gt = sess.run([optimizer,full_elbo,out,ims])
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
         if epoch % 200 == 0:
             fig,ax = plt.subplots(2,3)
-            ax[0,0].imshow(output[0,0,:,:,0])
-            ax[1,0].imshow(gt[0,:,:,0])
-            ax[0,1].imshow(output[0,1,:,:,0])
-            ax[1,1].imshow(gt[1,:,:,0])
-            ax[0,2].imshow(output[0,2,:,:,0])
-            ax[1,2].imshow(gt[2,:,:,0])
+            ax[0,0].imshow(output[0,0,:,:,:])
+            ax[1,0].imshow(gt[0,:,:,:])
+            ax[0,1].imshow(output[0,1,:,:,:])
+            ax[1,1].imshow(gt[1,:,:,:])
+            ax[0,2].imshow(output[0,2,:,:,:])
+            ax[1,2].imshow(gt[2,:,:,:])
             plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
             plt.close()
         losses.append(epoch_cost)
