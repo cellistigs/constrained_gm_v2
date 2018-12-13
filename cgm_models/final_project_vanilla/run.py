@@ -19,8 +19,11 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 filenames = ['../../data/mother_test.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 ims = ims/255.
+
+is_training = tf.placeholder(dtype = tf.int32)
+
 ## Push it through the network:
-out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=True)
+out,mean,logstd = VAE_vanilla_graph(ims,dim_z,'vanilla_graph',training=is_training)
 
 load = False
 if load == True:
@@ -54,7 +57,7 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver = tf.train.Saver(max_to_keep=2)
-epoch = 57 
+epoch = 57
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
@@ -71,7 +74,7 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost = sess.run([optimizer,full_elbo])
+                _,cost = sess.run([optimizer,full_elbo],feed_dict={is_training:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
