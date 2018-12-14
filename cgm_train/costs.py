@@ -1,7 +1,7 @@
 ## A place to store all the costs that we implement:
 import tensorflow as tf
 import numpy as np
-from config import batch_size,dim_z,imsize
+from config import batch_size,dim_z,imsize,dim_y
 
 # Formulate the cost for a vanilla variational autoencoder:
 def VAE_likelihood_MC(input,data_sample):
@@ -19,6 +19,71 @@ def VAE_likelihood_MC(input,data_sample):
     # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
     # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
     return cost
+
+#### Dimensions need to be figured out for all costs.
+def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
+    print(input,data_sample,'shapes')
+    # We need to account for tiling of the examples per
+    nb_samples = tf.shape(data_sample)[0]
+    data_samples_flat = tf.reshape(data_sample,[nb_samples,dim_y*batch_size,-1])
+    input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,dim_y,1,1,1))
+    input_flat = tf.reshape(input_expand,[nb_samples,dim_y*batch_size,-1])
+    se = -0.5*tf.reduce_sum(tf.square(input_flat-data_samples_flat),-1)
+    rmse = tf.reduce_mean(se,0)
+    ## This is of dimension (dim_y*batch_size,)
+
+    ## We will weight by the category vector
+    weighted_rmse = tf.multiply(cat_probs_batch,rmse)
+
+    # prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
+    ## assume sigma 1 => log denominator is 0
+    cost = tf.reduce_sum(rmse)
+    # e = input_flat-data_sample
+    # se = -0.5*tf.square(e)
+    # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
+    # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
+    return cost
+
+def GMVAE_cluster_cost(samples,gener_means,gener_logstd,cat_probs_batch):
+    # samples are of size (nb_samples,batch_size*dim_y,dim_z)
+    # gener_means, gener_vars are of size (batch_size*dim_y,dim_z)
+    # First we will reshape the means and variances to afford the right comparison:
+    nb_samples = tf.shape(samples)[0]
+    mean_broad = tf.tile(tf.expand_dims(gener_means,0),(nb_samples,1,1))
+    log_std_broad = tf.tile(tf.expand_dims(gener_logstd,0),(nb_samples,1,1))
+
+    ## Calculate the log likelihood of each sample: log[1/sqrt(2*pi*sig^2)exp(-0.5(s-mu)^2/sig^2)]
+    pre = -0.5*np.log(2*np.pi)-log_std_broad
+    lik = -0.5*tf.square(samples-mean_broad)/tf.square(tf.exp(log_std_broad))
+
+    cost_unweighted = tf.reduce_sum(pre+lik,-1)
+
+    cost_averaged = tf.reduce_mean(cost_unweighted,0)
+
+    cost_weighted= tf.reduce_sum(tf.multiply(cat_probs_batch,cost_averaged))
+
+    return cost_weighted
+
+def GMVAE_prior_cost(cat_probs_batch):
+    ## This is basically a constant factor to encourage uniformity:
+    factor = tf.reshape(tf.log(1./dim_y),(1,1))
+    factor_extended = tf.tile(factor,(batch_size*dim_y,1))
+    cost = tf.reduce_sum(factor_extended)
+    return cost
+
+def GMVAE_normal_entropy(infer_log_stds,cat_probs_batch):
+    ## Calculate the gaussian entropy of the inferred normal distributions:
+    ## This is of shape (batch_size*dim_y,dim_z)
+    elementwise = infer_log_stds+0.5*np.log(2*np.pi*np.exp(1))
+
+    examplewise = tf.reduce_sum(elementwise,1)
+
+    cost = tf.multiply(cat_probs_batch,examplewise)
+    return tf.reduce_sum(cost)
+
+def GMVAE_cat_entropy(cat_probs):
+    datawise = -tf.reduce_sum(tf.multiply(cat_probs,tf.log(cat_probs)),1)
+    return tf.reduce_sum(datawise)
 
 def VAE_likelihood_MC_debug(input,data_sample,sigma):
     nb_samples = tf.shape(data_sample)[0]
