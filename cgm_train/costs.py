@@ -53,7 +53,7 @@ def GMVAE_cat_kl(cat_probs):
 
 def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch):
     elementwise = gen_log_stds-inf_log_stds + (tf.exp(inf_log_stds)+tf.square(inf_means-gen_means))/(2*gen_log_stds) - 0.5
-    distwise = tf.reduce_sum(elementwise,1)
+    distwise = -tf.reduce_sum(elementwise,1)
     # Reweight:
     reweighted = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(distwise))
     print(reweighted)
