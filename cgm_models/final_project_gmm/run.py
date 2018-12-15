@@ -20,10 +20,11 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 
 ## Load in the data:
 filenames = ['../../data/virgin_train.tfrecords']
-filenames_test = ['/../../data/virgin_val.tfrecords']
+filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
 nb_samples = 5
+ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),'orig_ims')
 is_training = tf.placeholder(dtype = tf.int32)
 """
 Eventually, we will package what is between the hashes into a function. However,
@@ -53,6 +54,8 @@ inference_cats = tf.clip_by_value(inference_cats,1e-7,1.0)
 ## For the sake of computation, we want to organize as 1.....b......y1....yb
 inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y,-1))
 ## GENERATOR NETWORK
+
+inference_bias = tf.reduce_mean(inference_cats_batch,0)
 
 # Define the part of the generator network p(z|y)
 
@@ -136,14 +139,14 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,a,b,c = sess.run([optimizer,full_elbo,out_reshape,ll,kl_c,kl_g],feed_dict={is_training:1})
+                _,cost,output,a = sess.run([optimizer,full_elbo,out_reshape,inference_bias],feed_dict={is_training:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
         print(a,b,c)
-        if epoch % 200 == 0:
-
+        if epoch % 20 == 0:
+            print()
             fig,ax = plt.subplots(3,)
             ax[0].imshow(output[0,0,:,:,0])
             ax[1].imshow(output[0,1,:,:,0])
