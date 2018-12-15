@@ -44,6 +44,22 @@ def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
     # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
     return cost
 
+def GMVAE_cat_kl(cat_probs):
+    logged =  tf.multiply(cat_probs,tf.log(dim_y*cat_probs))
+    kl = -tf.reduce_sum(logged,1)
+    print(kl)
+    batch_cost = tf.reduce_sum(kl)
+    return batch_cost
+
+def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch):
+    elementwise = gen_log_stds-inf_log_stds + (tf.exp(inf_log_stds)+tf.square(inf_means-gen_means))/(2*gen_log_stds) - 0.5
+    distwise = tf.reduce_sum(elementwise,1)
+    # Reweight:
+    reweighted = tf.multiply(cat_probs_batch,distwise)
+    print(reweighted)
+    batch_cost = tf.reduce_sum(reweighted)
+    return batch_cost
+
 def GMVAE_cluster_cost(samples,gener_means,gener_logstd,cat_probs_batch):
     # samples are of size (nb_samples,batch_size*dim_y,dim_z)
     # gener_means, gener_vars are of size (batch_size*dim_y,dim_z)
