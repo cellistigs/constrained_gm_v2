@@ -265,11 +265,11 @@ def preprocess_VAE_vanilla(serialized_example):
 
 def VAE_pipeline(filenames,batch_size,imsize):
     base_dataset = tf.data.TFRecordDataset(filenames)
-    nb_shards = 4
-    index_dataset = tf.data.Dataset.range(nb_shards)
-    mixed = index_dataset.apply(tf.contrib.data.parallel_interleave(lambda x:base_dataset.shard(nb_shards,x).map(preprocess_VAE_vanilla).repeat(2).shuffle(1000),cycle_length = 4,block_length = 10,sloppy = True, prefetch_input_elements=1000))
-    # final = mixed.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
-    final = mixed.batch(batch_size)
+    nb_shards = 10
+    index_dataset = tf.data.Dataset.range(nb_shards-6)
+    mixed = index_dataset.apply(tf.contrib.data.parallel_interleave(lambda x:base_dataset.shard(nb_shards,x).map(preprocess_VAE_vanilla).take(5000).shuffle(500),cycle_length = 4,block_length = 10,sloppy = True, prefetch_input_elements=5000))
+    final = mixed.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    #final = mixed.batch(batch_size)
 
     iterator = tf.data.Iterator.from_structure(final.output_types,final.output_shapes)
     im,position,mouse,video = iterator.get_next()
