@@ -277,6 +277,39 @@ def VAE_pipeline(filenames,batch_size,imsize):
 
     return im,position,mouse,video,initz
 
+def VAE_train_pipeline(filenames,batch_size,imsize):
+    base_dataset = tf.data.TFRecordDataset(filenames)
+    nb_shards = 4
+    index_dataset = tf.data.Dataset.range(nb_shards)
+    mixed = index_dataset.apply(tf.contrib.data.parallel_interleave(lambda x:base_dataset.shard(nb_shards,x).map(preprocess_VAE_vanilla).repeat(2).shuffle(1000),cycle_length = 4,block_length = 10,sloppy = True, prefetch_input_elements=1000))
+    # final = mixed.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    final = mixed.batch(batch_size)
+
+    iterator = tf.data.Iterator.from_structure(final.output_types,final.output_shapes)
+    im,position,mouse,video = iterator.get_next()
+    initz = iterator.make_initializer(final,'init_op')
+
+    return im,position,mouse,video,initz
+
+def VAE_traintest_pipeline(filenames_train,filenames_test,batch_size,imsize):
+    test_batchsize = 2
+    base_dataset_train = tf.data.TFRecordDataset(filenames_train)
+    nb_shards = 4
+    index_dataset = tf.data.Dataset.range(nb_shards)
+    mixed_train = index_dataset.apply(tf.contrib.data.parallel_interleave(lambda x:base_dataset_train.shard(nb_shards,x).map(preprocess_VAE_vanilla).repeat(2).shuffle(1000),cycle_length = 4,block_length = 10,sloppy = True, prefetch_input_elements=1000))
+    # final = mixed.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    final_train = mixed_train.batch(batch_size)
+
+    base_dataset_test = tf.data.TFRecordDataset(filenames_test)
+    test = base_dataset_test.map(preprocess_VAE_vanilla).batch(test_batchsize)
+
+    iterator = tf.data.Iterator.from_structure(final_train.output_types,final_train.output_shapes)
+    im,position,mouse,video = iterator.get_next()
+    initz = iterator.make_initializer(final_train,'init_op')
+    init_test = iterator.make_initializer(test,'test_init_op')
+
+    return im,position,mouse,video,initz,init_test
+
 def temppipeline_0(filenames,batch_size,imsize):
     # Apply preprocessing
     base_dataset = tf.data.TFRecordDataset(filenames)
