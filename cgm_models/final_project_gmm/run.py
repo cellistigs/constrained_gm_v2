@@ -22,7 +22,7 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 filenames = ['../../data/mother_test.tfrecords']
 ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
 ims = ims/255.
-nb_samples = 1
+nb_samples = 5 
 is_training = tf.placeholder(dtype = tf.int32)
 """
 Eventually, we will package what is between the hashes into a function. However,
@@ -71,12 +71,12 @@ out = gener_model_vanilla(samples_reshape,'vanilla_graph/gener')
 
 out_reshape = tf.reshape(out,(nb_samples,batch_size*dim_y,imsize,imsize,nb_channels))
 
-load = False
+load = True 
 if load == True:
     var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
     saver = tf.train.Saver(var_list = var_list)
-    checkpointdirectory = '../final_project_vanilla/final_project_vanilla_video'
+    load_checkpointdirectory = '../final_project_vanilla/final_project_vanilla_video'
 #####################################################################
 # We are evaluating on out, generative/inference means/logstds, and inference cats
 ## Render cost:
@@ -108,14 +108,14 @@ if not os.path.exists(checkpointdirectory):
 # # Save the iterator state by adding it to the saveable objects collection.
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
-saver = tf.train.Saver(max_to_keep=2)
-epoch = 43
+#saver = tf.train.Saver(max_to_keep=2)
+epoch = 43 
 init = tf.global_variables_initializer()
 
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
-            saver.restore(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
+            saver.restore(sess,load_checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
 
     max_epochs = MAX_EPOCHS
     scale = 1.0
@@ -129,12 +129,13 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost = sess.run([optimizer,full_elbo],feed_dict={is_training:1})
+                _,cost,output,gt,a = sess.run([optimizer,full_elbo,out_reshape,ims,inference_cats_batch],feed_dict={is_training:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
         if epoch % 200 == 0:
+            print(a)
             fig,ax = plt.subplots(2,3)
             ax[0,0].imshow(output[0,0,:,:,0])
             ax[1,0].imshow(gt[0,:,:,0])
