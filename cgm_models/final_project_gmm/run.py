@@ -19,10 +19,11 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 ## Load in the weights from the vanilla model where appropriate to speed training.
 
 ## Load in the data:
-filenames = ['../../data/mother_test.tfrecords']
-ims,position,mouse,video,initializer = VAE_pipeline(filenames,batch_size,imsize)
+filenames = ['../../data/virgin_train.tfrecords']
+filenames_test = ['/../../data/virgin_val.tfrecords']
+ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
-nb_samples = 1
+nb_samples = 5
 is_training = tf.placeholder(dtype = tf.int32)
 """
 Eventually, we will package what is between the hashes into a function. However,
@@ -44,6 +45,10 @@ inference_means,inference_logstds = recog_model_mixture(pure_img_codes,dim_y,dim
 # Define the part of the recognition network q(y|x) that gives category inferences:
 inference_cats = recog_model_cat(ims,dim_y,'gmm_graph/recog_c')
 ## This is of shape (batch_size,dim_y)
+
+## Protect against zeros in categorical loss, further computations.
+inference_cats = tf.clip_by_value(inference_cats,1e-7,1.0)
+##
 
 ## For the sake of computation, we want to organize as 1.....b......y1....yb
 inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y,-1))
@@ -110,7 +115,7 @@ if not os.path.exists(checkpointdirectory):
 # # Save the iterator state by adding it to the saveable objects collection.
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
-saver = tf.train.Saver(max_to_keep=2)
+saver_newsave = tf.train.Saver(max_to_keep=2)
 epoch = 43
 init = tf.global_variables_initializer()
 
@@ -148,6 +153,6 @@ with tf.Session() as sess:
             plt.close()
         losses.append(epoch_cost)
         print('Loss for epoch '+str(epoch)+': '+str(epoch_cost))
-        save_path = saver.save(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
+        save_path = saver_newsave.save(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
         if epoch%100 == 0:
             np.save(checkpointdirectory+'/loss',losses)
