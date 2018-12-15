@@ -81,13 +81,15 @@ if load == True:
 # We are evaluating on out, generative/inference means/logstds, and inference cats
 ## Render cost:
 ll = GMVAE_likelihood_MC(ims,out_reshape,inference_cats_batch)
-lm = GMVAE_cluster_cost(samples,generative_means,generative_logstds,inference_cats_batch)
-lp = GMVAE_prior_cost(inference_cats_batch)
+kl_c = GMVAE_cat_kl(inference_cats)
+kl_g = GMVAE_gauss_kl(inference_means,inference_logstds,generative_means,generative_logstds,inference_cats_batch)
+# lm = GMVAE_cluster_cost(samples,generative_means,generative_logstds,inference_cats_batch)
+# lp = GMVAE_prior_cost(inference_cats_batch)
 
-hg = GMVAE_normal_entropy(inference_logstds,inference_cats_batch)
-hc = GMVAE_cat_entropy(inference_cats)
+# hg = GMVAE_normal_entropy(inference_logstds,inference_cats_batch)
+# hc = GMVAE_cat_entropy(inference_cats)
 
-full_elbo = ll+lm+lp+hg+hc
+full_elbo = ll+kl_c+kl_g
 
 ## Define an optimizer:
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
