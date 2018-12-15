@@ -33,8 +33,8 @@ def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
     ## This is of dimension (dim_y*batch_size,)
 
     ## We will weight by the category vector
-    weighted_rmse = tf.multiply(cat_probs_batch,rmse)
-
+    weighted_rmse = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(rmse))
+    print(weighted_rmse)
     # prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
     ## assume sigma 1 => log denominator is 0
     cost = tf.reduce_sum(rmse)
@@ -55,7 +55,7 @@ def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch
     elementwise = gen_log_stds-inf_log_stds + (tf.exp(inf_log_stds)+tf.square(inf_means-gen_means))/(2*gen_log_stds) - 0.5
     distwise = tf.reduce_sum(elementwise,1)
     # Reweight:
-    reweighted = tf.multiply(cat_probs_batch,distwise)
+    reweighted = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(distwise))
     print(reweighted)
     batch_cost = tf.reduce_sum(reweighted)
     return batch_cost
