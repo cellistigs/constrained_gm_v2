@@ -131,20 +131,18 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,gt,a = sess.run([optimizer,full_elbo,out_reshape,ims,inference_cats_batch],feed_dict={is_training:1})
+                _,cost,output,a,b,c = sess.run([optimizer,full_elbo,out_reshape,ll,kl_c,kl_g],feed_dict={is_training:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
+        print(a,b,c)
         if epoch % 200 == 0:
-            print(a)
-            fig,ax = plt.subplots(2,3)
-            ax[0,0].imshow(output[0,0,:,:,0])
-            ax[1,0].imshow(gt[0,:,:,0])
-            ax[0,1].imshow(output[0,1,:,:,0])
-            ax[1,1].imshow(gt[1,:,:,0])
-            ax[0,2].imshow(output[0,2,:,:,0])
-            ax[1,2].imshow(gt[2,:,:,0])
+
+            fig,ax = plt.subplots(3,)
+            ax[0].imshow(output[0,0,:,:,0])
+            ax[1].imshow(output[0,1,:,:,0])
+            ax[2].imshow(output[0,2,:,:,0])
             plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
             plt.close()
         losses.append(epoch_cost)
