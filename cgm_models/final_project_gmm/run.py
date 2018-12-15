@@ -24,7 +24,7 @@ filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
 nb_samples = 5
-ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),'orig_ims')
+ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),name = 'orig_ims')
 is_training = tf.placeholder(dtype = tf.int32)
 """
 Eventually, we will package what is between the hashes into a function. However,
@@ -81,10 +81,12 @@ out_reshape = tf.reshape(out,(nb_samples,batch_size*dim_y,imsize,imsize,nb_chann
 
 load = True 
 if load == True:
-    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    var_list_vanilla = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    var_list_gmm = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='gmm_graph')
+    var_list = var_list_vanilla + var_list_gmm
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
     saver = tf.train.Saver(var_list = var_list)
-    load_checkpointdirectory = '../final_project_vanilla/final_project_vanilla_video'
+    load_checkpointdirectory = videoname 
 #####################################################################
 # We are evaluating on out, generative/inference means/logstds, and inference cats
 ## Render cost:
@@ -119,7 +121,7 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver_newsave = tf.train.Saver(max_to_keep=2)
-epoch = 43
+epoch = 18 
 init = tf.global_variables_initializer()
 
 with tf.Session() as sess:
