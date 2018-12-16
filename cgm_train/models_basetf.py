@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import tensorflow as tf
-from config import batch_size,imsize,dim_z,dim_v,nb_channels
+from config import batch_size,imsize,dim_y,dim_z,dim_v,nb_channels
 
 
 ### We want a vanilla convolutional autoencoder as a performance baseline. Give the
@@ -43,7 +43,8 @@ def conv2d_bn_to_vector(input,name,
                         seed_filter_nb = 4,
                         strides = 2,
                         filter_seq = None,
-                        training=True):
+                        training=True,
+                        bn = True):
     # define the vector of filters to use if not specified. Default to convolution down to 1x1.
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     if filter_seq == None:
@@ -62,7 +63,7 @@ def conv2d_bn_to_vector(input,name,
         if i == len(filter_seq)-1:
             x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),bn = False)
         else:
-            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training = training)
+            x = conv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training = training,bn = bn)
     return x
 
 # Define a strided layer recursion on adjoint convolutions using the above:
@@ -71,7 +72,8 @@ def adjconv2d_bn_to_vector(input,name,
                            seed_filter_nb = 4,
                            strides = 2,
                            filter_seq = None,
-                           training = True):
+                           training = True,
+                           bn = True):
     # define the vector of filters to use if not specified. Default to convolution from to 1x1 to image.
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     if filter_seq == None:
@@ -97,7 +99,7 @@ def adjconv2d_bn_to_vector(input,name,
         if i == len(filter_seq)-1:
             x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),activation = tf.nn.sigmoid,bn = False)
         else:
-            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training=training)
+            x = adjconv2d_bn(x,filter_nb,kernel,name = name+'/layer'+str(i),training=training,bn =bn)
     return x
 
 ## Vanilla recognition model. Infers the means and standard deviation for our factor
@@ -134,21 +136,23 @@ def gener_model_vanilla(input_tensor,name,strides = 2,seed_filter_nb = 4,trainin
 
 ## Category recognition model. Infers the probability of each category from data.
 ## q(y|x).
-def recog_model_cat(input_tensor,dim_y,name,strides = 2,seed_filter_nb = 4,training=True):
+def recog_model_cat(input_tensor,dim_y,name,strides = 2,seed_filter_nb = 4,training=True,bn = True):
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
     input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,nb_channels])
-    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training,bn = bn)
     conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
     cat_probs = tf.layers.dense(conv_out_reshaped,dim_y,activation = tf.nn.softmax,name = name+'/catprobs')
 
     return cat_probs
 
 ## Generative model to infer distribution of continuous latents from category labels, p(z|y)
-def gener_model_mixture(input_tensor,dim_z,name):
+def gener_model_mixture(dim_z,name):
     # Use a two layer mlp:
     nb_hidden = 512
+    index = [i for i in range(dim_y) for j in range(batch_size)]
+    input_tensor = tf.one_hot(index,depth = dim_y,axis = -1)
     # First layer should take batch x 1:
     hidden = tf.layers.dense(input_tensor,nb_hidden,activation = tf.nn.elu,name = name+'/gmix1')
     # Second layer should return dimension z
@@ -159,12 +163,12 @@ def gener_model_mixture(input_tensor,dim_z,name):
 
 ## Part of recognition model to infer lower-d representation of images that can be loaded into
 ## by the weights from the vanilla network:
-def recog_model_imageprocess(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True):
+def recog_model_imageprocess(input_tensor,dim_z,name,strides = 2,seed_filter_nb = 4,training=True,bn = True):
     "A vanilla architecture to process inputs into latent variable parameters."
     nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
     filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
     input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,nb_channels])
-    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training)
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training,bn = bn)
     conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
     return conv_out_reshaped
 

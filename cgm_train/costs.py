@@ -52,13 +52,16 @@ def GMVAE_cat_kl(cat_probs):
     return batch_cost
 
 def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch):
-    elementwise = gen_log_stds-inf_log_stds + (tf.exp(inf_log_stds)+tf.square(inf_means-gen_means))/(2*gen_log_stds) - 0.5
+    elementwise = gen_log_stds-inf_log_stds +tf.exp(-np.log(2)+2*(inf_log_stds-gen_log_stds))+(tf.square(inf_means-gen_means))/(2*tf.exp(gen_log_stds)) - 0.5
+    part_a = gen_log_stds-inf_log_stds 
+    part_b = tf.exp(-np.log(2)+2*(inf_log_stds-gen_log_stds))
+    part_c = (tf.square(inf_means-gen_means))/(2*tf.exp(gen_log_stds))
     distwise = -tf.reduce_sum(elementwise,1)
     # Reweight:
     reweighted = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(distwise))
     print(reweighted)
     batch_cost = tf.reduce_sum(reweighted)
-    return batch_cost
+    return batch_cost,part_a,part_b,part_c
 
 def GMVAE_cluster_cost(samples,gener_means,gener_logstd,cat_probs_batch):
     # samples are of size (nb_samples,batch_size*dim_y,dim_z)
