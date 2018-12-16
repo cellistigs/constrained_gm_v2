@@ -24,6 +24,7 @@ filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
 nb_samples = 5
+ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),name = 'orig_ims')
 is_training = tf.placeholder(dtype = tf.int32)
 """
 Eventually, we will package what is between the hashes into a function. However,
@@ -54,6 +55,8 @@ inference_cats = tf.clip_by_value(inference_cats,1e-7,1.0)
 inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y,-1))
 ## GENERATOR NETWORK
 
+inference_bias = tf.reduce_mean(inference_cats_batch,0)
+
 # Define the part of the generator network p(z|y)
 
 generative_means,generative_logstds = gener_model_mixture(inference_cats_batch,dim_z,'gmm_graph/gener_c')
@@ -76,12 +79,14 @@ out = gener_model_vanilla(samples_reshape,'vanilla_graph/gener')
 
 out_reshape = tf.reshape(out,(nb_samples,batch_size*dim_y,imsize,imsize,nb_channels))
 
-load = False
+load = True 
 if load == True:
-    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    var_list_vanilla = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='vanilla_graph')
+    var_list_gmm = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='gmm_graph')
+    var_list = var_list_vanilla + var_list_gmm
     # var_list is important. it sees the tensorflow variables, that are in the scope of the first_net in this default graph.
     saver = tf.train.Saver(var_list = var_list)
-    checkpointdirectory = '../final_project_vanilla/final_project_vanilla_video'
+    load_checkpointdirectory = videoname 
 #####################################################################
 # We are evaluating on out, generative/inference means/logstds, and inference cats
 ## Render cost:
@@ -116,13 +121,13 @@ if not os.path.exists(checkpointdirectory):
 # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, saveable)
 losses = []
 saver_newsave = tf.train.Saver(max_to_keep=2)
-epoch = 43
+epoch = 18 
 init = tf.global_variables_initializer()
 
 with tf.Session() as sess:
     sess.run(init)
     if load == True:
-            saver.restore(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
+            saver.restore(sess,load_checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')
 
     max_epochs = MAX_EPOCHS
     scale = 1.0
@@ -136,19 +141,18 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost = sess.run([optimizer,full_elbo],feed_dict={is_training:1})
+                _,cost,output,a = sess.run([optimizer,full_elbo,out_reshape,inference_bias],feed_dict={is_training:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
-        if epoch % 200 == 0:
-            fig,ax = plt.subplots(2,3)
-            ax[0,0].imshow(output[0,0,:,:,0])
-            ax[1,0].imshow(gt[0,:,:,0])
-            ax[0,1].imshow(output[0,1,:,:,0])
-            ax[1,1].imshow(gt[1,:,:,0])
-            ax[0,2].imshow(output[0,2,:,:,0])
-            ax[1,2].imshow(gt[2,:,:,0])
+        print(a,b,c)
+        if epoch % 20 == 0:
+            print()
+            fig,ax = plt.subplots(3,)
+            ax[0].imshow(output[0,0,:,:,0])
+            ax[1].imshow(output[0,1,:,:,0])
+            ax[2].imshow(output[0,2,:,:,0])
             plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
             plt.close()
         losses.append(epoch_cost)
