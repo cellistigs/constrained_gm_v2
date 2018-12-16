@@ -20,7 +20,7 @@ from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch
 
 ## Load in the data:
 filenames = ['../../data/virgin_train.tfrecords']
-filenames_test = ['/../../data/virgin_val.tfrecords']
+filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
 nb_samples = 5
