@@ -22,7 +22,7 @@ def VAE_likelihood_MC(input,data_sample):
 
 #### Dimensions need to be figured out for all costs.
 def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
-    print(input,data_sample,'shapes')
+
     # We need to account for tiling of the examples per
     nb_samples = tf.shape(data_sample)[0]
     data_samples_flat = tf.reshape(data_sample,[nb_samples,dim_y*batch_size,-1])
@@ -46,8 +46,8 @@ def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
 
 def GMVAE_cat_kl(cat_probs):
     logged =  tf.multiply(cat_probs,tf.log(dim_y*cat_probs))
+
     kl = -tf.reduce_sum(logged,1)
-    print(kl)
     batch_cost = tf.reduce_sum(kl)
     return batch_cost
 
@@ -56,6 +56,7 @@ def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch
     part_a = gen_log_stds-inf_log_stds 
     part_b = tf.exp(-np.log(2)+2*(inf_log_stds-gen_log_stds))
     part_c = (tf.square(inf_means-gen_means))/(2*tf.exp(gen_log_stds))
+    print(part_a,part_b,part_c,'gauss_kl_quantities')
     distwise = -tf.reduce_sum(elementwise,1)
     # Reweight:
     reweighted = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(distwise))

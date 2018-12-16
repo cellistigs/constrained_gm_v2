@@ -24,21 +24,21 @@ dataset = tf.data.Dataset.from_tensor_slices(mnist_x[:12000,:,:])
 
 
 ## We're going to use an even simpler dataset: just 4 gaussian mixtures in a 16-d space. 
-#mean_vecs = [((i+np.arange(16))%(4) == 0).astype(int) for i in range(4)]
+mean_vecs = [((i+np.arange(64))%(4) == 0).astype(int) for i in range(4)]
 
-#all_vecdata = []
+all_vecdata = []
 
-#for vec in mean_vecs:
-#    vec_data = tf.clip_by_value(tf.random_normal(mean = vec,stddev = 0.05,shape = (1000,16)),0,1)
-#    all_vecdata.append(vec_data)
+for vec in mean_vecs:
+    vec_data = tf.clip_by_value(tf.random_normal(mean = vec,stddev = 0.05,shape = (1000,64)),0,1)
+    all_vecdata.append(vec_data)
 
-#interleaved = tf.reshape(tf.stack(all_vecdata, axis=1),[-1, tf.shape(all_vecdata[0])[1]])
+interleaved = tf.reshape(tf.stack(all_vecdata, axis=1),[-1, tf.shape(all_vecdata[0])[1]])
 
-#interleaved_ims = tf.reshape(interleaved,(4*1000,4,4))
+interleaved_ims = tf.reshape(interleaved,(4*1000,8,8))
 
-#dataset = tf.data.Dataset.from_tensor_slices(interleaved_ims)
+dataset = tf.data.Dataset.from_tensor_slices(interleaved_ims)
 
-# dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
 batched = dataset.shuffle(batch_size*2).apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
@@ -76,7 +76,7 @@ inference_cats = tf.clip_by_value(inference_cats,1e-7,1.0)
 ## For the sake of computation, we want to organize as 1.....b......y1....yb
 inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y,-1))
 ## GENERATOR NETWORK
-
+sanity_check = tf.reduce_sum(tf.reshape(inference_cats_batch,(dim_y,batch_size)),0)
 # Define the part of the generator network p(z|y)
 
 #generative_means,generative_logstds = gener_model_mixture(inference_cats_batch,dim_z,'gmm_graph/gener_c')
@@ -113,7 +113,7 @@ if load == True:
 ## Render cost:
 ll = GMVAE_likelihood_MC(ims,out_reshape,inference_cats_batch)
 kl_c = GMVAE_cat_kl(inference_cats)
-kl_g = GMVAE_gauss_kl(inference_means,inference_logstds,generative_means,generative_logstds,inference_cats_batch)
+kl_g,_,_,_ = GMVAE_gauss_kl(inference_means,inference_logstds,generative_means,generative_logstds,inference_cats_batch)
 
 alpha = tf.placeholder(dtype = float,name = 'alpha')
 
@@ -159,13 +159,13 @@ with tf.Session() as sess:
                 progress = i/(1000/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,e = sess.run([optimizer,full_elbo,out_reshape,inference_cats],feed_dict={is_training:1,alpha:1})
+                _,cost,output,e,f = sess.run([optimizer,full_elbo,out_reshape,generative_means,sanity_check],feed_dict={is_training:1,alpha:np.min((1,epoch/500.))})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
             #print((np.min(a),np.min(b),np.min(c),np.min(d),np.min(e)))
-        print(e[:3,:])
+        print(e[0,:],e[batch_size,:],e[2*batch_size,:],e[3*batch_size,:],f)
         if epoch % 20 == 0:
             fig,ax = plt.subplots(3,)
             print(output.shape)

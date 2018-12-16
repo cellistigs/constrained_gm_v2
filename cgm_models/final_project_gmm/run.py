@@ -23,7 +23,7 @@ filenames = ['../../data/virgin_train.tfrecords']
 filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
-nb_samples = 5
+nb_samples = 10
 ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),name = 'orig_ims')
 is_training = tf.placeholder(dtype = tf.int32)
 """
@@ -54,6 +54,7 @@ inference_cats = tf.clip_by_value(inference_cats,1e-7,1.0)
 ## For the sake of computation, we want to organize as 1.....b......y1....yb
 inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y,-1))
 ## GENERATOR NETWORK
+sanity_check = tf.reduce_sum(tf.reshape(inference_cats_batch,(batch_size,dim_y)),1)
 
 inference_bias = tf.reduce_mean(inference_cats,0)
 
@@ -105,8 +106,8 @@ kl_g,debuga,debugb,debugc = GMVAE_gauss_kl(inference_means,inference_logstds,gen
 
 # hg = GMVAE_normal_entropy(inference_logstds,inference_cats_batch)
 # hc = GMVAE_cat_entropy(inference_cats)
-
-full_elbo = ll+kl_c+kl_g
+alpha = tf.placeholder(dtype = float,name = "alpha")
+full_elbo = ll+alpha*kl_c+kl_g
 
 ## Define an optimizer:
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -148,12 +149,12 @@ with tf.Session() as sess:
                 progress = i/(1000*len(filenames)/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,a = sess.run([optimizer,full_elbo,out_reshape,inference_cats],feed_dict={is_training:1})
+                _,cost,output,a,b = sess.run([optimizer,full_elbo,out_reshape,inference_cats,sanity_check],feed_dict={is_training:1,alpha:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
-            print(a[0,:])
+            print(a[0,:],b)
         if epoch % 20 == 0:
             print()
             fig,ax = plt.subplots(3,)
