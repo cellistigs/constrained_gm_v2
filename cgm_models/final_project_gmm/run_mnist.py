@@ -1,8 +1,6 @@
 import tensorflow as tf
 import sys
 import numpy as np
-import imageio
-from skimage.transform import resize
 from scipy import misc
 import matplotlib
 matplotlib.use('Agg')
@@ -13,30 +11,15 @@ import cgm_train
 from cgm_train.costs import *
 from cgm_train.models_basetf import *
 from cgm_train.input import *
-from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname,dim_z,dim_y,nb_channels
+from config import learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname,dim_z,dim_y,nb_channels
 
 ## Toy models for testing base functionality. This is in mnist.
 
 ## Load in the data:
 train, test = tf.keras.datasets.mnist.load_data()
 mnist_x, mnist_y = train
-dataset = tf.data.Dataset.from_tensor_slices(mnist_x[:12000,:,:])
+dataset = tf.data.Dataset.from_tensor_slices(mnist_x[:2000,:,:])
 
-
-## We're going to use an even simpler dataset: just 4 gaussian mixtures in a 16-d space. 
-mean_vecs = [((i+np.arange(64))%(4) == 0).astype(int) for i in range(4)]
-
-all_vecdata = []
-
-for vec in mean_vecs:
-    vec_data = tf.clip_by_value(tf.random_normal(mean = vec,stddev = 0.05,shape = (1000,64)),0,1)
-    all_vecdata.append(vec_data)
-
-interleaved = tf.reshape(tf.stack(all_vecdata, axis=1),[-1, tf.shape(all_vecdata[0])[1]])
-
-interleaved_ims = tf.reshape(interleaved,(4*1000,8,8))
-
-dataset = tf.data.Dataset.from_tensor_slices(interleaved_ims)
 
 dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
 
@@ -50,7 +33,7 @@ ims = iterator.get_next()
 
 ims = tf.image.resize_images(tf.expand_dims(ims,-1),[imsize,imsize])/255.
 
-nb_samples = 1
+nb_samples = 5
 is_training = tf.placeholder(dtype = tf.int32)
 
 ######################################################
@@ -79,12 +62,12 @@ inference_cats_batch = tf.reshape(tf.transpose(inference_cats),(batch_size*dim_y
 sanity_check = tf.reduce_sum(tf.reshape(inference_cats_batch,(dim_y,batch_size)),0)
 # Define the part of the generator network p(z|y)
 
-#generative_means,generative_logstds = gener_model_mixture(inference_cats_batch,dim_z,'gmm_graph/gener_c')
-generative_means = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1./np.sqrt(dim_y)),name = 'gener_means')
-generative_logstds = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1./np.sqrt(dim_y)),name = 'gener_logstds')
+generative_means,generative_logstds = gener_model_mixture(dim_z,'gmm_graph/gener_c')
+#generative_means = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1./np.sqrt(dim_y)),name = 'gener_means')
+#generative_logstds = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1./np.sqrt(dim_y)),name = 'gener_logstds')
 ## each of size (batch_size*dim_y,dim_z)
-generative_means = tf.reshape(tf.tile(generative_means,(1,batch_size)),(batch_size*dim_y,dim_z))
-generative_logstds = tf.reshape(tf.tile(generative_logstds,(1,batch_size)),(batch_size*dim_y,dim_z))
+#generative_means = tf.reshape(tf.tile(generative_means,(1,batch_size)),(batch_size*dim_y,dim_z))
+#generative_logstds = tf.reshape(tf.tile(generative_logstds,(1,batch_size)),(batch_size*dim_y,dim_z))
 ## Reparametrization trick:
 
 mean_broadcast = tf.tile(tf.expand_dims(inference_means,0),(nb_samples,1,1))
@@ -93,7 +76,7 @@ std_broadcast = tf.tile(tf.expand_dims(tf.exp(inference_logstds),0),(nb_samples,
 # Sample noise:
 eps = tf.random_normal((nb_samples,batch_size*dim_y,dim_z))
 
-samples = mean_broadcast+std_broadcast
+samples = mean_broadcast+std_broadcast*eps
 
 samples_reshape = tf.reshape(samples,(nb_samples*batch_size*dim_y,dim_z))
 
@@ -159,13 +142,15 @@ with tf.Session() as sess:
                 progress = i/(1000/(batch_size))*100
                 sys.stdout.write("Train progress: %d%%   \r" % (progress) )
                 sys.stdout.flush()
-                _,cost,output,e,f = sess.run([optimizer,full_elbo,out_reshape,generative_means,sanity_check],feed_dict={is_training:1,alpha:np.min((1,epoch/500.))})
+                _,cost,output,e,f = sess.run([optimizer,full_elbo,out_reshape,generative_means,inference_cats],feed_dict={is_training:1,alpha:1})
                 epoch_cost+=cost
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
             #print((np.min(a),np.min(b),np.min(c),np.min(d),np.min(e)))
-        print(e[0,:],e[batch_size,:],e[2*batch_size,:],e[3*batch_size,:],f)
+        print(e[0,:],e[batch_size,:],e[2*batch_size,:],e[3*batch_size,:])
+        print(f[0,:],'inference_cats')
+        print(f[1,:],'inference_cats')
         if epoch % 20 == 0:
             fig,ax = plt.subplots(3,)
             print(output.shape)

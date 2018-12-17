@@ -1,8 +1,6 @@
 import tensorflow as tf
 import sys
 import numpy as np
-import imageio
-from skimage.transform import resize
 from scipy import misc
 import matplotlib
 matplotlib.use('Agg')
@@ -13,7 +11,7 @@ import cgm_train
 from cgm_train.costs import *
 from cgm_train.models_basetf import *
 from cgm_train.input import *
-from config import native_fullsize,learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname,dim_z,dim_y,nb_channels
+from config import learning_rate,epsilon,MAX_EPOCHS,imsize,batch_size,videoname,dim_z,dim_y,nb_channels
 
 ## Gaussian mixture prior deep generative model.
 ## Load in the weights from the vanilla model where appropriate to speed training.
@@ -23,7 +21,7 @@ filenames = ['../../data/virgin_train.tfrecords']
 filenames_test = ['../../data/virgin_val.tfrecords']
 ims,position,mouse,video,initializer,test_initializer = VAE_traintest_pipeline(filenames,filenames_test,batch_size,imsize)
 ims = ims/255.
-nb_samples = 10
+nb_samples = 3 
 ims = tf.placeholder_with_default(ims,shape = (batch_size,imsize,imsize,nb_channels),name = 'orig_ims')
 is_training = tf.placeholder(dtype = tf.int32)
 """
@@ -63,12 +61,12 @@ inference_bias = tf.reduce_mean(inference_cats,0)
 #generative_means,generative_logstds = gener_model_mixture(inference_cats_batch,dim_z,'gmm_graph/gener_c')
 
 
-#generative_means,generative_logstds = gener_model_mixture(dim_z,'gmm_graph/gener_c')
-generative_means = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1,name = 'gener_means'))
-generative_logstds = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=1.,stddev=1,name = 'gener_logstds'))
+generative_means,generative_logstds = gener_model_mixture(dim_z,'gmm_graph/gener_c')
+#generative_means = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=0.,stddev=1,name = 'gener_means'))
+#generative_logstds = tf.Variable(tf.random_normal(shape=[dim_y,dim_z],mean=1.,stddev=1,name = 'gener_logstds'))
 ## each of size (batch_size*dim_y,dim_z)
-generative_means = tf.reshape(tf.tile(generative_means,(1,batch_size)),(batch_size*dim_y,dim_z))
-generative_logstds = tf.reshape(tf.tile(generative_logstds,(1,batch_size)),(batch_size*dim_y,dim_z))
+#generative_means = tf.reshape(tf.tile(generative_means,(1,batch_size)),(batch_size*dim_y,dim_z))
+#generative_logstds = tf.reshape(tf.tile(generative_logstds,(1,batch_size)),(batch_size*dim_y,dim_z))
 ## each of size (batch_size*dim_y,dim_z)
 
 ## Reparametrization trick:
@@ -78,7 +76,7 @@ std_broadcast = tf.tile(tf.expand_dims(tf.exp(inference_logstds),0),(nb_samples,
 # Sample noise:
 eps = tf.random_normal((nb_samples,batch_size*dim_y,dim_z))
 
-samples = mean_broadcast+std_broadcast
+samples = mean_broadcast+std_broadcast*eps
 
 samples_reshape = tf.reshape(samples,(nb_samples*batch_size*dim_y,dim_z))
 
@@ -154,7 +152,8 @@ with tf.Session() as sess:
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
-            print(a[0,:],b)
+            print(a[0,:])
+            print(a[1,:])
         if epoch % 20 == 0:
             print()
             fig,ax = plt.subplots(3,)

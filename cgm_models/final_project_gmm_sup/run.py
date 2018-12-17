@@ -1,8 +1,6 @@
 import tensorflow as tf
 import sys
 import numpy as np
-import imageio
-from skimage.transform import resize
 from scipy import misc
 import matplotlib
 matplotlib.use('Agg')
@@ -72,7 +70,7 @@ std_broadcast = tf.tile(tf.expand_dims(tf.exp(inference_logstds),0),(nb_samples,
 # Sample noise:
 eps = tf.random_normal((nb_samples,batch_size*dim_y,dim_z))
 
-samples = mean_broadcast+std_broadcast
+samples = mean_broadcast+std_broadcast*eps
 
 samples_reshape = tf.reshape(samples,(nb_samples*batch_size*dim_y,dim_z))
 
@@ -150,16 +148,6 @@ with tf.Session() as sess:
                 i+=1
             except tf.errors.OutOfRangeError:
                 break
-        if epoch % 200 == 0:
-            fig,ax = plt.subplots(2,3)
-            ax[0,0].imshow(output[0,0,:,:,0])
-            ax[1,0].imshow(gt[0,:,:,0])
-            ax[0,1].imshow(output[0,1,:,:,0])
-            ax[1,1].imshow(gt[1,:,:,0])
-            ax[0,2].imshow(output[0,2,:,:,0])
-            ax[1,2].imshow(gt[2,:,:,0])
-            plt.savefig(checkpointdirectory+'/check_epoch'+str(epoch))
-            plt.close()
         losses.append(epoch_cost)
         print('Loss for epoch '+str(epoch)+': '+str(epoch_cost))
         save_path = saver_newsave.save(sess,checkpointdirectory+'/modelep'+str(epoch)+'.ckpt')

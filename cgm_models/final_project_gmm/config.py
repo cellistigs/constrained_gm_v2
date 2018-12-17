@@ -18,18 +18,16 @@ videoname = 'final_project_gmm_video'
 
 ### Input features: at some point, maybe it would be better to write these from
 ### our input generation method.
-imsize = 128
-native_fullsize = 128
-native_imageshift = 20 ## These can be aggregated
-native_imagemean = 40
+imsize = 128 
 
 ### Internal variables: things that we should keep track of in the course of training
 ### and passing inputs through our models
 dim_v = imsize*imsize 
-dim_z = 16 
-dim_y = 5
+dim_z = 4 
+dim_y = 5 
+dim_p = 8
 ### Training variables: variables that track parameters relevant for trianing
-batch_size = 2
+batch_size = 20
 learning_rate = 1e-3
 epsilon = 1e-10
 MAX_EPOCHS = 30000
