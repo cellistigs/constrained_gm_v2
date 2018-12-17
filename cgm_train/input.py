@@ -1,5 +1,4 @@
 ## File to store input preprocessing scripts:
-from skimage.transform import resize
 from config import imsize,batch_size
 import tensorflow as tf
 import numpy as np
@@ -292,7 +291,6 @@ def VAE_train_pipeline(filenames,batch_size,imsize):
     return im,position,mouse,video,initz
 
 def VAE_traintest_pipeline(filenames_train,filenames_test,batch_size,imsize):
-    test_batchsize = 2
     base_dataset_train = tf.data.TFRecordDataset(filenames_train)
     nb_shards = 4
     index_dataset = tf.data.Dataset.range(nb_shards)
@@ -301,7 +299,7 @@ def VAE_traintest_pipeline(filenames_train,filenames_test,batch_size,imsize):
     final_train = mixed_train.batch(batch_size)
 
     base_dataset_test = tf.data.TFRecordDataset(filenames_test)
-    test = base_dataset_test.map(preprocess_VAE_vanilla).batch(test_batchsize)
+    test = base_dataset_test.map(preprocess_VAE_vanilla).batch(batch_size)
 
     iterator = tf.data.Iterator.from_structure(final_train.output_types,final_train.output_shapes)
     im,position,mouse,video = iterator.get_next()
