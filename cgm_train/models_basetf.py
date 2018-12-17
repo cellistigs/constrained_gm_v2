@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import tensorflow as tf
-from config import batch_size,imsize,dim_y,dim_z,dim_v,nb_channels
+from config import batch_size,imsize,dim_y,dim_z,dim_v,nb_channels,dim_p
 
 
 ### We want a vanilla convolutional autoencoder as a performance baseline. Give the
@@ -146,6 +146,25 @@ def recog_model_cat(input_tensor,dim_y,name,strides = 2,seed_filter_nb = 4,train
     cat_probs = tf.layers.dense(conv_out_reshaped,dim_y,activation = tf.nn.softmax,name = name+'/catprobs')
 
     return cat_probs
+## with postions:
+def recog_model_cat_sup(input_tensor,pose,dim_y,name,strides = 2,seed_filter_nb = 4,training=True,bn = True):
+    "A vanilla architecture to process inputs into latent variable parameters."
+    nb_layers = np.ceil(np.log2(imsize)/np.log2(strides))
+    filter_seq = [seed_filter_nb*(2**layer_index) for layer_index in range(int(nb_layers))]
+    input_shaped = tf.reshape(input_tensor,[batch_size,imsize,imsize,nb_channels])
+    conv_out = conv2d_bn_to_vector(input_shaped,strides = strides,filter_seq=filter_seq,name = name,training=training,bn = bn)
+    conv_out_reshaped = tf.reshape(conv_out,[batch_size,-1])
+    with_poses = tf.concat((conv_out_reshaped,pose),1)
+    cat_probs = tf.layers.dense(with_poses,dim_y,activation = tf.nn.softmax,name = name+'/catprobs')
+
+    return cat_probs
+
+def gener_model_pose(latents):
+    ## give the poses as a linear transformation of the latents:
+    transform_mat = tf.Variable(tf.random_normal(shape=[dim_z,dim_p],mean=0.,stddev=1./np.sqrt(dim_y)),name = 'pose_transforms')
+    bias = tf.Variable(tf.zeros([1,dim_p]))
+    out = bias+tf.matmul(latents,transform_mat)
+    return out
 
 ## Generative model to infer distribution of continuous latents from category labels, p(z|y)
 def gener_model_mixture(dim_z,name):

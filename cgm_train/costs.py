@@ -44,6 +44,29 @@ def GMVAE_likelihood_MC(input,data_sample,cat_probs_batch):
     # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
     return cost
 
+def GMVAE_likelihood_MC_pose(input,data_sample,cat_probs_batch):
+
+    # We need to account for tiling of the examples per
+    nb_samples = tf.shape(data_sample)[0]
+    data_samples_flat = tf.reshape(data_sample,[nb_samples,dim_y*batch_size,-1])
+    input_expand = tf.tile(tf.expand_dims(input,0),(nb_samples,dim_y,1))
+    input_flat = tf.reshape(input_expand,[nb_samples,dim_y*batch_size,-1])
+    se = -0.5*tf.reduce_sum(tf.square(input_flat-data_samples_flat),-1)
+    rmse = tf.reduce_mean(se,0)
+    ## This is of dimension (dim_y*batch_size,)
+
+    ## We will weight by the category vector
+    weighted_rmse = tf.multiply(tf.squeeze(cat_probs_batch),tf.squeeze(rmse))
+    print(weighted_rmse)
+    # prefactor = -0.5*(imsize*imsize*3)*np.log(2*np.pi)*batch_size
+    ## assume sigma 1 => log denominator is 0
+    cost = tf.reduce_sum(rmse)
+    # e = input_flat-data_sample
+    # se = -0.5*tf.square(e)
+    # mse = tf.reduce_mean(se,axis = 0) ## multiple samples
+    # cost = tf.reduce_sum(mse) ## sum over the image and over the batch.
+    return cost
+
 def GMVAE_cat_kl(cat_probs):
     logged =  tf.multiply(cat_probs,tf.log(dim_y*cat_probs))
 
@@ -53,7 +76,7 @@ def GMVAE_cat_kl(cat_probs):
 
 def GMVAE_gauss_kl(inf_means,inf_log_stds,gen_means,gen_log_stds,cat_probs_batch):
     elementwise = gen_log_stds-inf_log_stds +tf.exp(-np.log(2)+2*(inf_log_stds-gen_log_stds))+(tf.square(inf_means-gen_means))/(2*tf.exp(gen_log_stds)) - 0.5
-    part_a = gen_log_stds-inf_log_stds 
+    part_a = gen_log_stds-inf_log_stds
     part_b = tf.exp(-np.log(2)+2*(inf_log_stds-gen_log_stds))
     part_c = (tf.square(inf_means-gen_means))/(2*tf.exp(gen_log_stds))
     print(part_a,part_b,part_c,'gauss_kl_quantities')
